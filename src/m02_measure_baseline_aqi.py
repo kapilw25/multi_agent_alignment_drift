@@ -1,10 +1,11 @@
 """
-Phase 1: Measure Baseline AQI for 5 Architectures (GPU Only)
-Uses src/AQI/05_evaluation/AQI/evaluation.py
+Phase 1: Measure Baseline AQI for 6 Architectures (GPU Only)
+Checkpointing enabled - resumes from last completed model on crash.
 
-    python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/log1.log
-    python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/log2.log
-    python -u src/m02_measure_baseline_aqi.py --models Llama3_8B Mistral_7B 2>&1 | tee logs/log3.log
+    python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
+    python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
+    python -u src/m02_measure_baseline_aqi.py --mode sanity --models Llama3_8B Mistral_7B 2>&1 | tee logs/phase1_custom.log
+    python -u src/m02_measure_baseline_aqi.py --mode sanity --samples 50 --output outputs/test 2>&1 | tee logs/phase1_test.log
 """
 
 import sys
@@ -28,9 +29,8 @@ sys.path.insert(0, str(AQI_DIR / "05_evaluation"))
 sys.path.insert(0, str(AQI_DIR / "0a_AQI_EVAL_utils" / "src"))
 sys.path.insert(0, str(AQI_DIR / "0c_utils"))
 
-# Import from AQI suite
+# Import from AQI suite (for AQI calculation functions)
 from eval_utils import (
-    MODELS,
     load_model_for_eval,
     unload_model,
     verify_hf_repos,
@@ -44,13 +44,18 @@ from aqi.aqi_dealign_xb_chi import (
     process_model_data,
 )
 
-# Import local config
+# Import local config and model registry (independent of AQI package)
 from m01_config import (
     PHASE1_MODEL_KEYS, DATASET_NAME, GAMMA, DIM_REDUCTION,
     RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, BATCH_SIZE, OUTPUT_DIR,
     get_batch_size,
 )
+from utils import load_model_registry, get_model_info
 from utils.plot_aqi import create_all_plots
+from utils.checkpoint import CheckpointManager, show_checkpoint_menu
+
+# Load model registry (single source of truth)
+MODEL_REGISTRY = load_model_registry()
 
 
 # =============================================================================
@@ -76,6 +81,28 @@ def run_phase1(model_keys, samples_per_category, output_dir):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Initialize checkpoint manager
+    ckpt = CheckpointManager("phase1_aqi", output_dir)
+
+    # Check for existing checkpoint
+    if ckpt.exists():
+        choice = show_checkpoint_menu(ckpt, model_keys)
+        if choice == "complete":
+            # All models done, return cached results
+            print("Using cached results from completed run.")
+            return ckpt.get_results()
+        elif choice == "resume":
+            # Get pending models
+            pending_models = ckpt.get_pending_models(model_keys)
+            all_results = ckpt.get_results()
+            print(f"Resuming: {len(pending_models)} models remaining")
+            model_keys = pending_models
+        else:
+            # Restart fresh
+            all_results = {}
+    else:
+        all_results = {}
+
     set_seed(RANDOM_SEED)
 
     # Load dataset once
@@ -87,16 +114,17 @@ def run_phase1(model_keys, samples_per_category, output_dir):
     )
     print(f"Loaded {len(dataset_df)} samples")
 
-    all_results = {}
-
     for model_key in model_keys:
-        model_info = MODELS[model_key]
+        model_info = get_model_info(model_key)  # From model_registry.json
         model_output_dir = output_dir / model_key
         model_output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Mark current model in checkpoint
+        ckpt.set_current_model(model_key)
+
         print(f"\n{'=' * 60}")
         print(f"Evaluating: {model_info['display_name']}")
-        print(f"HF Repo: {model_info['hf_repo']}")
+        print(f"HF Repo: {model_info['instruct']}")  # instruct model for AQI eval
         print(f"{'=' * 60}")
 
         model = None
@@ -140,18 +168,22 @@ def run_phase1(model_keys, samples_per_category, output_dir):
 
             # Store result
             overall = results.get("overall", {})
-            all_results[model_key] = {
+            model_result = {
                 "model_key": model_key,
-                "hf_repo": model_info["hf_repo"],
+                "hf_repo": model_info["instruct"],  # instruct model used for eval
                 "aqi_score": overall.get("AQI", 0.0),
                 "chi_norm": overall.get("CHI_norm", 0.0),
                 "xb_norm": overall.get("XB_norm", 0.0),
                 "n_samples": len(dataset_df),
             }
+            all_results[model_key] = model_result
 
             # Save individual result
             with open(model_output_dir / "result.json", "w") as f:
-                json.dump(all_results[model_key], f, indent=2, default=str)
+                json.dump(model_result, f, indent=2, default=str)
+
+            # Save checkpoint after each successful model
+            ckpt.add_completed_model(model_key, model_result)
 
             print(f"\nAQI: {overall.get('AQI', 0):.2f}")
 
@@ -176,6 +208,9 @@ def run_phase1(model_keys, samples_per_category, output_dir):
             if torch.cuda.is_available():
                 free, total = torch.cuda.mem_get_info()
                 print(f"GPU Memory: {free/1e9:.1f}GB free / {total/1e9:.1f}GB total")
+
+    # Mark checkpoint as complete
+    ckpt.mark_complete()
 
     return all_results
 
@@ -241,11 +276,11 @@ def main():
 
     samples = args.samples or (SAMPLES_SANITY if args.mode == "sanity" else SAMPLES_FULL)
     model_keys = args.models if args.models else PHASE1_MODEL_KEYS
-    model_keys = [m for m in model_keys if m in MODELS]
+    model_keys = [m for m in model_keys if m in MODEL_REGISTRY]
     output_dir = args.output or str(OUTPUT_DIR)
 
     if not model_keys:
-        print(f"ERROR: No valid models. Available: {list(MODELS.keys())}")
+        print(f"ERROR: No valid models. Available: {list(MODEL_REGISTRY.keys())}")
         sys.exit(1)
 
     # Verify HF repos exist

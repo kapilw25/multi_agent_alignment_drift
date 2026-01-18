@@ -1,8 +1,8 @@
 # Multi-Agent Alignment Drift - Research Plan
 
-> **Goal**: Resolve alignment drift across multi-architecture LLMs (Llama, Phi, etc.) working in the same environment
-> **Status**: Phase 1 - Baseline Measurement
-> **Last Updated**: Jan 17, 2026
+> **Goal**: Resolve alignment drift across multi-architecture LLMs (Llama, Mistral, etc.) working in the same environment
+> **Status**: Phase 1 Complete, Phase 2 Ready
+> **Last Updated**: Jan 18, 2026
 
 ---
 
@@ -12,188 +12,269 @@
 2. Can steering vectors transfer cross-architecture?
 3. What game-theoretic equilibrium exists for multi-agent alignment?
 
----                                                                                                                
-Updated Phase Structure                                                                                            
-┌───────┬────────────────────────────────┬──────────┬─────────────────────────────────────────────┐                
-│ Phase │              Name              │  Effort  │                   Purpose                   │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 1     │ Measure Baseline AQI           │ EASY     │ Establish natural differences               │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 2     │ Extract Steering Vectors       │ MEDIUM   │ Get v_llama, v_mistral, etc.                │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 3     │ Same-Architecture Validation   │ MEDIUM   │ Prove steering works                        │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 4     │ Cross-Architecture Steering    │ HARD     │ Test transfer between architectures         │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 4.5   │ Alignment Recovery (OPTIONAL)  │ HIGH     │ Prove steering can recover broken alignment │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 5     │ Multi-Agent Collaboration Test │ HARD     │ Test collaboration-induced drift            │                
-├───────┼────────────────────────────────┼──────────┼─────────────────────────────────────────────┤                
-│ 6     │ Game-Theoretic Equilibrium     │ RESEARCH │ Nash equilibrium formulation                │                
-└───────┴────────────────────────────────┴──────────┴─────────────────────────────────────────────┘                
---- 
+---
+
+## Phase Structure
+
+| Phase | Name | Effort | Purpose | Script |
+|:-----:|:-----|:------:|:--------|:-------|
+| 1 | Measure Baseline AQI | EASY | Establish natural differences | `m02_measure_baseline_aqi.py` |
+| 2 | Extract Steering Vectors | MEDIUM | Get v_llama, v_mistral, etc. | `m03_extract_steering_vectors.py` |
+| 3 | Same-Architecture Validation | MEDIUM | Prove steering works | `m04_*.py` (TBD) |
+| 4 | Cross-Architecture Steering | HARD | Test transfer between architectures | `m05_*.py` (TBD) |
+| 4.5 | Alignment Recovery (OPTIONAL) | HIGH | Prove steering can recover broken alignment | - |
+| 5 | Multi-Agent Collaboration Test | HARD | Test collaboration-induced drift | - |
+| 6 | Game-Theoretic Equilibrium | RESEARCH | Nash equilibrium formulation | - |
+
+---
+
+## End-to-End Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                         MULTI-AGENT ALIGNMENT DRIFT PIPELINE                            │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+  PHASE 1                    PHASE 2                    PHASE 3                 PHASE 4
+  Baseline AQI               Steering Vectors           Same-Arch Test          Cross-Arch Test
+  ─────────────              ────────────────           ──────────────          ───────────────
+
+  ┌─────────┐               ┌─────────┐ ┌─────────┐
+  │  LLM_1  │──┐            │  Base   │ │Instruct │
+  │ (AQI_1) │  │            │ Model   │ │ Model   │
+  └─────────┘  │            └────┬────┘ └────┬────┘
+               │                 │           │
+  ┌─────────┐  │                 └─────┬─────┘
+  │  LLM_2  │  │                       ▼
+  │ (AQI_2) │──┤  AQI        ┌─────────────────┐        ┌─────────────────┐
+  └─────────┘  │  Eval──────►│ Steering Vector │───────►│ Apply to Base   │
+               │             │ v = h_i - h_b   │        │ at λ = 0→1      │
+  ┌─────────┐  │             └─────────────────┘        └────────┬────────┘
+  │  LLM_3  │  │                                                  │
+  │ (AQI_3) │──┤             Per architecture:                    ▼
+  └─────────┘  │             v_1, v_2, ...v_N          ┌─────────────────┐
+               │                                        │ AQI vs λ curve  │
+  ┌─────────┐  │                                        │ (monotonic?)    │
+  │   ...   │  │                                        └────────┬────────┘
+  │         │──┤                                                  │
+  └─────────┘  │                                                  ▼
+               │                                        ┌─────────────────┐
+  ┌─────────┐  │                                        │ Cross-Arch:     │
+  │  LLM_N  │──┘                                        │ v_best → all    │
+  │ (AQI_N) │                                           │ other LLMs      │
+  └─────────┘                                           └─────────────────┘
+
+       │                           │                          │
+       ▼                           ▼                          ▼
+  ┌─────────┐               ┌─────────────┐           ┌─────────────┐
+  │ Baseline│               │ N Steering  │           │ Transfer    │
+  │ = Best  │               │ Vectors     │           │ Matrix      │
+  │  AQI    │               │ (.pt files) │           │ (NxN)       │
+  └─────────┘               └─────────────┘           └─────────────┘
+```
+
+---
 
 ## Two Types of Alignment Drift
 
 ### Type 1: Baseline Differential (Natural)
-
 > **Source**: Different architectures trained on different RLHF preferences
 > **When**: Exists BEFORE collaboration
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    NATURAL ALIGNMENT DIFFERENTIAL                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   Llama-3 (Meta)       Phi-3 (Microsoft)      Mistral (Mistral AI)         │
-│   ┌─────────────┐      ┌─────────────┐        ┌─────────────┐              │
-│   │ Trained on  │      │ Trained on  │        │ Trained on  │              │
-│   │ Meta's RLHF │      │ MS's data   │        │ Different   │              │
-│   │ preferences │      │ preferences │        │ preferences │              │
-│   └──────┬──────┘      └──────┬──────┘        └──────┬──────┘              │
-│          │                    │                      │                      │
-│          ▼                    ▼                      ▼                      │
-│      AQI = 72             AQI = 68               AQI = 75                   │
-│                                                                             │
-│   These ARE ALREADY DIFFERENT — this IS the "drift" (differential)         │
-│   You don't need to CREATE it — it already exists naturally.               │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Different training → Different alignment baselines → Measurable via AQI
 
 ### Type 2: Collaboration-Induced Drift
-
 > **Source**: Multi-agent interaction degrades alignment
 > **When**: Happens DURING collaboration
 
+Agent A (AQI=75) + Agent B (AQI=68) → After collaboration → Both degraded
+
+---
+
+## Phase Details
+
+### Phase 1: Measure Baseline AQI [COMPLETE]
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COLLABORATION-INDUCED DRIFT                               │
+│                         PHASE 1: BASELINE AQI MEASUREMENT                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   BEFORE COLLABORATION              AFTER COLLABORATION                     │
-│                                                                             │
-│   ┌─────────┐  ┌─────────┐          ┌─────────┐  ┌─────────┐               │
-│   │ Agent A │  │ Agent B │          │ Agent A │  │ Agent B │               │
-│   │ AQI=75  │  │ AQI=68  │   ───►   │ AQI=70  │  │ AQI=65  │               │
-│   └─────────┘  └─────────┘          └─────────┘  └─────────┘               │
-│        │            │                    │            │                     │
-│        └─────┬──────┘                    └─────┬──────┘                     │
-│              ▼                                 ▼                            │
-│         Collaborate                    Both degraded!                       │
-│         on tasks                       Alignment leaked                     │
-│                                                                             │
-│   Question: Does interaction cause alignment to degrade?                    │
+│   ┌─────────┐   ┌─────────┐   ┌─────────┐         ┌─────────┐             │
+│   │  LLM_1  │   │  LLM_2  │   │  LLM_3  │   ...   │  LLM_N  │             │
+│   │Instruct │   │Instruct │   │Instruct │         │Instruct │             │
+│   └────┬────┘   └────┬────┘   └────┬────┘         └────┬────┘             │
+│        │             │             │                    │                  │
+│        └─────────────┴──────┬──────┴────────────────────┘                  │
+│                             ▼                                              │
+│                 ┌───────────────────────┐                                  │
+│                 │   LITMUS Dataset      │                                  │
+│                 │   (hasnat79/litmus)   │                                  │
+│                 │   200 per category    │                                  │
+│                 └───────────┬───────────┘                                  │
+│                             ▼                                              │
+│                 ┌───────────────────────┐                                  │
+│                 │   AQI Evaluation      │                                  │
+│                 │   CHI + XB → AQI      │                                  │
+│                 └───────────┬───────────┘                                  │
+│                             ▼                                              │
+│        ┌─────────┬─────────┬─────────┬─────────┐                          │
+│        ▼         ▼         ▼         ▼         ▼                          │
+│     AQI_1     AQI_2     AQI_3     ...      AQI_N                          │
+│                             │                                              │
+│                             ▼                                              │
+│                    Baseline = max(AQI)                                     │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Script**: `src/m02_measure_baseline_aqi.py`
+
+**Configuration** (`src/m01_config.py`):
+- Dataset: `hasnat79/litmus`
+- Samples: 100 per category (sanity) / 200 per category (full)
+- Models: Llama3_8B, Mistral_7B, Qwen2_7B, Gemma2_9B, Falcon_7B, Zephyr_7B
+
+**Commands**:
+```bash
+python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
+python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
+```
+
+**Output**: `outputs/phase1_baseline_aqi/`
+- Per-model AQI scores
+- Baseline model identification (highest AQI)
+- Bar plots comparing all models
+
 ---
 
-## D-STEER Approach (No Training Required)
-
-> See: `literature/D_STEER/summary.md`
+### Phase 2: Extract Steering Vectors [READY]
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    D-STEER: Steering Vector Extraction                       │
+│                     PHASE 2: STEERING VECTOR EXTRACTION                      │
+│                         (D-STEER Approach - Batched)                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   For EACH architecture (Llama, Mistral, etc.):                             │
+│   For EACH architecture (LLM_1, LLM_2, ... LLM_N):                          │
 │                                                                             │
 │   ┌──────────────────┐              ┌──────────────────┐                    │
 │   │   Base Model     │              │  Instruct Model  │                    │
-│   │  (Llama-3-8B)    │              │ (Llama-3-8B-Inst)│                    │
+│   │   (LLM_i-base)   │              │  (LLM_i-instruct)│                    │
 │   └────────┬─────────┘              └────────┬─────────┘                    │
 │            │                                 │                              │
-│            └─────────────┬───────────────────┘                              │
-│                          ▼                                                  │
-│                 ┌─────────────────┐                                         │
-│                 │ Steering Vector │                                         │
-│                 │ v_llama = Δh    │                                         │
-│                 └─────────────────┘                                         │
-│                                                                             │
-│   Key Question: Can v_mistral steer Llama? (Cross-architecture transfer)   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Implementation Phases (Easy Wins First)
-
-### Phase 1: Measure Baseline AQI (EASY WIN)
-
-> **Effort**: Low | **Value**: High | **Dependencies**: None
-
-**Goal**: Establish AQI baseline for each architecture using existing tools.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           PHASE 1: Baseline Measurement                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐      │
-│   │  Llama  │   │   Phi   │   │ Mistral │   │  Qwen   │   │  Gemma  │      │
-│   └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘      │
-│        │             │             │             │             │           │
-│        ▼             ▼             ▼             ▼             ▼           │
-│   ┌─────────────────────────────────────────────────────────────────┐      │
-│   │              SAME Evaluation Suite (AQI)                        │      │
-│   │  • Use existing: finetuning_evaluation/05_evaluation/AQI/       │      │
-│   │  • Dataset: hasnat79/litmus                                     │      │
-│   │  • Metrics: CHI, XB → AQI score [0-100]                        │      │
-│   └─────────────────────────────────────────────────────────────────┘      │
-│        │             │             │             │             │           │
-│        ▼             ▼             ▼             ▼             ▼           │
-│    AQI = ??      AQI = ??      AQI = ??      AQI = ??      AQI = ??       │
-│                                    ↑                                        │
-│                         HIGHEST = BASELINE MODEL                            │
+│            │    ┌───────────────────────┐    │                              │
+│            │    │  Anthropic/hh-rlhf    │    │                              │
+│            │    │  (chosen + rejected)  │    │                              │
+│            │    │  1000 samples (full)  │    │                              │
+│            │    └───────────┬───────────┘    │                              │
+│            │                │                │                              │
+│            ▼                ▼                ▼                              │
+│   ┌─────────────────────────────────────────────────────┐                  │
+│   │         Batched Hidden State Extraction              │                  │
+│   │         (batch_size from MODEL_BATCH_SIZES)          │                  │
+│   │                                                      │                  │
+│   │   [1/4] BASE - chosen      [2/4] BASE - rejected    │                  │
+│   │   [3/4] INSTRUCT - chosen  [4/4] INSTRUCT - rejected│                  │
+│   └─────────────────────────┬───────────────────────────┘                  │
+│                             ▼                                              │
+│                 ┌─────────────────────┐                                    │
+│                 │   Steering Vector   │                                    │
+│                 │ v = mean(h_inst -   │                                    │
+│                 │         h_base)     │                                    │
+│                 └─────────┬───────────┘                                    │
+│                           │                                                │
+│                           ▼                                                │
+│                 ┌─────────────────────┐                                    │
+│                 │  SVD Decomposition  │  (optional, --no-svd to skip)      │
+│                 │  component 3        │                                    │
+│                 └─────────┬───────────┘                                    │
+│                           │                                                │
+│                           ▼                                                │
+│   ┌───────────────────────────────────────────────────────────┐           │
+│   │  steering_vector.pth          (chosen, per layer)         │           │
+│   │  steering_vector_rejected.pth (rejected, per layer)       │           │
+│   │  steering_vector_svd3.pth     (SVD component 3)           │           │
+│   │  cosine_similarity.png        (instruct vs base)          │           │
+│   │  steering_vector_norms.png    (magnitude per layer)       │           │
+│   └───────────────────────────────────────────────────────────┘           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Tasks**:
-- [ ] Run `evaluation.py` on 5 architectures (Llama-3-8B, Phi-3, Mistral-7B, Qwen2-7B, Gemma-2-9B)
-- [ ] Record AQI scores per model
-- [ ] Identify baseline model (highest AQI)
-- [ ] Document per-axiom breakdown (7 dimensions)
+**Script**: `src/m03_extract_steering_vectors.py`
 
-**Tools**: `finetuning_evaluation/comparative_study/05_evaluation/AQI/evaluation.py`
+**Approach**: D-STEER (no training required)
+```
+v = mean(h_instruct - h_base)   # per layer, hidden_dim
+```
+
+**Dataset**: `Anthropic/hh-rlhf` (chosen + rejected pairs)
+- Sanity mode: 100 samples
+- Full mode: 1000 samples
+
+**Batch Processing** (synced with m02, A100 80GB optimized):
+```python
+MODEL_BATCH_SIZES = {
+    "Llama3_8B": 16,   "Mistral_7B": 16,  "Qwen2_7B": 16,
+    "Gemma2_9B": 8,    "Falcon_7B": 16,   "Zephyr_7B": 16,
+}
+```
+
+> **⚠️ POC Note**: Current implementation uses **Base→Instruct** pairs (general alignment direction).
+> For pure D-STEER replication, future work should use **SFT→DPO** pairs:
+> - **Option A**: Find public SFT→DPO model pairs for each architecture
+> - **Option B**: Train SFT→DPO pipelines (see `finetuning_evaluation/comparative_study/`)
+
+**Model Pairs** (`src/utils/model_registry.json`):
+| Key | Base Model | Instruct Model |
+|-----|-----------|----------------|
+| Mistral_7B | mistralai/Mistral-7B-v0.3 | mistralai/Mistral-7B-Instruct-v0.3 |
+| Llama3_8B | meta-llama/Llama-3.1-8B | meta-llama/Llama-3.1-8B-Instruct |
+| Qwen2_7B | Qwen/Qwen2-7B | Qwen/Qwen2-7B-Instruct |
+| Gemma2_9B | google/gemma-2-9b | google/gemma-2-9b-it |
+| Falcon_7B | tiiuae/falcon-7b | tiiuae/falcon-7b-instruct |
+| Zephyr_7B | mistralai/Mistral-7B-v0.1 | HuggingFaceH4/zephyr-7b-beta |
+
+**Commands**:
+```bash
+python -u src/m03_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log
+python -u src/m03_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
+python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # skip SVD
+```
+
+**Output**: `outputs/phase2_steering_vectors/`
+```
+{model}/
+├── steering_vector.pth           # Chosen responses (num_layers × hidden_dim)
+├── steering_vector_rejected.pth  # Rejected responses
+├── steering_vector_svd3.pth      # SVD component 3 (if enabled)
+├── cosine_similarity.png         # Instruct vs Base similarity
+├── steering_vector_norms.png     # L2 norm per layer
+├── metadata.json                 # Stats, batch_size, timestamps
+└── explained_variances/          # SVD variance plots per layer
+```
+
+**Summary Plots** (cross-model):
+- `cosine_similarity_comparison.png` - All models comparison
+- `steering_norms_comparison.png` - Norm curves overlay
+- `model_dimensions.png` - Architecture comparison
 
 ---
 
-### Phase 2: Extract Steering Vectors (MEDIUM)
+### Phase 3: Same-Architecture Validation [TODO]
 
-> **Effort**: Medium | **Value**: High | **Dependencies**: Phase 1
-
-**Goal**: Extract steering vectors for each architecture using D-STEER approach.
-
-**Tasks**:
-- [ ] For each architecture, get Base + Instruct model pair
-- [ ] Extract hidden states on `Anthropic/hh-rlhf` prompts
-- [ ] Compute steering vector: `v = h_instruct - h_base`
-- [ ] Save steering vectors per architecture
-
-**Tools**: `literature/D_STEER/steering/Create_steering_vector_and_AQI_eval.ipynb`
-
----
-
-### Phase 3: Same-Architecture Steering Validation (MEDIUM)
-
-> **Effort**: Medium | **Value**: Medium | **Dependencies**: Phase 2
-
-**Goal**: Verify steering works within same architecture before trying cross-architecture.
+**Goal**: Verify steering works within same architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    SAME-ARCHITECTURE STEERING TEST                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   Llama-3-8B (Base)                                                         │
+│   LLM_i (Base)                                                              │
 │        │                                                                    │
 │        ▼                                                                    │
-│   Apply v_llama with different λ values                                     │
+│   Apply v_i with different λ values                                         │
 │        │                                                                    │
 │        ├── λ = 0.0  →  AQI = ?? (should match base)                        │
 │        ├── λ = 0.5  →  AQI = ?? (should be between)                        │
@@ -204,33 +285,27 @@ Updated Phase Structure
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Tasks**:
-- [ ] Apply steering vectors at λ = {0.0, 0.25, 0.5, 0.75, 1.0}
-- [ ] Measure AQI at each λ value
-- [ ] Plot AQI vs λ curve for each architecture
-- [ ] Verify monotonic increase (sanity check)
+**Expected**: Monotonic AQI increase with λ
 
 ---
 
-### Phase 4: Cross-Architecture Steering (HARD - Key Experiment)
+### Phase 4: Cross-Architecture Steering [TODO]
 
-> **Effort**: High | **Value**: Very High | **Dependencies**: Phase 3
-
-**Goal**: Test if steering vectors transfer between architectures.
+**Goal**: Test steering vector transfer between architectures
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    CROSS-ARCHITECTURE STEERING                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   Baseline Model: Mistral (AQI = 75, highest)                               │
+│   Baseline Model: LLM_best (highest AQI)                                    │
 │                                                                             │
-│   Extract v_mistral from Mistral                                            │
+│   Extract v_best from LLM_best                                              │
 │        │                                                                    │
-│        ├────► Apply to Llama (Base)     →  AQI = ??                        │
-│        ├────► Apply to Phi (Base)       →  AQI = ??                        │
-│        ├────► Apply to Qwen (Base)      →  AQI = ??                        │
-│        └────► Apply to Gemma (Base)     →  AQI = ??                        │
+│        ├────► Apply to LLM_1 (Base)     →  AQI = ??                        │
+│        ├────► Apply to LLM_2 (Base)     →  AQI = ??                        │
+│        ├────► Apply to LLM_3 (Base)     →  AQI = ??                        │
+│        └────► Apply to LLM_N (Base)     →  AQI = ??                        │
 │                                                                             │
 │   Key Questions:                                                            │
 │   • Does cross-architecture steering work at all?                          │
@@ -240,19 +315,16 @@ Updated Phase Structure
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Tasks**:
-- [ ] Apply baseline model's steering vector to all other architectures
-- [ ] Measure AQI improvement (or degradation)
-- [ ] Compare cross-arch vs same-arch steering effectiveness
-- [ ] Identify architecture compatibility patterns
+**Key Questions**:
+- Does cross-architecture steering work?
+- Which architectures are most compatible?
+- How does it compare to same-architecture steering?
 
 ---
 
-### Phase 4.5: Alignment Recovery Stress Test (OPTIONAL)
+### Phase 4.5: Alignment Recovery [OPTIONAL]
 
-> **Effort**: High | **Value**: Validation | **Dependencies**: Phase 3
-
-**Goal**: Prove steering can RECOVER alignment from an intentionally degraded model.
+**Goal**: Prove steering can recover alignment from intentionally degraded model
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -260,24 +332,24 @@ Updated Phase Structure
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐               │
-│   │ Llama-3-8B   │────►│ Train on     │────►│ Llama-3-8B   │               │
-│   │ Instruct     │     │ rejected     │     │ Dealigned    │               │
-│   │ (AQI = 72)   │     │ responses    │     │ (AQI = 35)   │               │
+│   │   LLM_i      │────►│ Train on     │────►│   LLM_i      │               │
+│   │   Instruct   │     │ rejected     │     │  Dealigned   │               │
+│   │  (AQI = X)   │     │ responses    │     │  (AQI = Y)   │               │
 │   └──────────────┘     └──────────────┘     └──────────────┘               │
 │                                                    │                        │
 │                                                    ▼                        │
 │                                        ┌──────────────────────┐            │
-│                                        │  Apply v_mistral     │            │
+│                                        │  Apply v_best        │            │
 │                                        │  (cross-arch) OR     │            │
-│                                        │  Apply v_llama       │            │
+│                                        │  Apply v_i           │            │
 │                                        │  (same-arch)         │            │
 │                                        └──────────────────────┘            │
 │                                                    │                        │
 │                                                    ▼                        │
 │                                             ┌──────────────┐               │
-│                                             │ Llama-3-8B   │               │
-│                                             │ Recovered?   │               │
-│                                             │ (AQI = ??)   │               │
+│                                             │   LLM_i      │               │
+│                                             │  Recovered?  │               │
+│                                             │  (AQI = ??)  │               │
 │                                             └──────────────┘               │
 │                                                                             │
 │   Key Questions:                                                            │
@@ -288,52 +360,39 @@ Updated Phase Structure
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Why This Matters**: If steering can recover a *deliberately broken* model, it proves the approach is robust enough for real-world alignment drift scenarios.
-
-**Tasks**:
-- [ ] Train LoRA adapter on rejected responses (create dealigned model)
-- [ ] Measure AQI drop (before/after dealignment)
-- [ ] Apply same-architecture steering vector → measure recovery
-- [ ] Apply cross-architecture steering vector → measure recovery
-- [ ] Compare recovery rates
-
-**Tools**: May need to create `dealign_training.py` using `Anthropic/hh-rlhf` rejected responses
+**Experiment**:
+1. Train LoRA on rejected responses (dealign)
+2. Apply steering vector
+3. Measure recovery rate
 
 ---
 
-### Phase 5: Multi-Agent Collaboration Test (HARD)
+### Phase 5: Multi-Agent Collaboration Test [TODO]
 
-> **Effort**: High | **Value**: High | **Dependencies**: Phase 4
+**Goal**: Test if steered agents maintain alignment during collaboration
 
-**Goal**: Test if steered agents maintain alignment during collaboration.
-
-**Tasks**:
-- [ ] Design multi-agent task requiring collaboration
-- [ ] Measure AQI before and after collaboration
-- [ ] Detect collaboration-induced drift (Type 2)
-- [ ] Test if pre-steering prevents drift
+**Experiment**:
+- Design multi-agent task
+- Measure AQI before/after collaboration
+- Test if pre-steering prevents drift
 
 ---
 
-### Phase 6: Game-Theoretic Equilibrium (RESEARCH)
+### Phase 6: Game-Theoretic Equilibrium [RESEARCH]
 
-> **Effort**: Very High | **Value**: Research Contribution | **Dependencies**: Phase 5
-
-**Goal**: Find Nash equilibrium for multi-agent alignment states.
-
-**Tasks**:
-- [ ] Model alignment as game-theoretic payoff
-- [ ] Formulate equilibrium conditions
-- [ ] Validate with Purdue 7-dimension framework
-- [ ] Publish findings
+**Goal**: Find Nash equilibrium for multi-agent alignment states
 
 ---
 
-## Literature Review (TODO)
+## Code Assets
 
-1. Game theoretic equilibrium in multi-agent systems
-2. Multi-Agent Alignment benchmarks
-3. Purdue paper - Anthropic dataset → 7 dimensions → conflict of direction analysis
+| Asset | Location | Purpose |
+|-------|----------|---------|
+| Config | `src/m01_config.py` | Phase 1 settings |
+| AQI Evaluation | `src/m02_measure_baseline_aqi.py` | Measure alignment quality |
+| Steering Extraction | `src/m03_extract_steering_vectors.py` | Extract steering vectors |
+| Model Registry | `src/utils/model_registry.json` | Model pairs config |
+| AQI Package | `src/AQI/` | Shared AQI utilities |
 
 ---
 
@@ -342,14 +401,3 @@ Updated Phase Structure
 - [D-STEER Paper](https://arxiv.org/abs/2512.11838) - "DPO as Steering Vector Perturbation" (Dec 2025)
 - [Agent Drift: Quantifying Behavioral Degradation](https://arxiv.org/abs/2601.04170) - Jan 2026
 - [AAAI 2026 Bridge Program on LLM-Based Multi-Agent Collaboration](https://multiagents.org/2026/)
-- [Anthropic Alignment Auditing Agents](https://alignment.anthropic.com/2025/automated-auditing/)
-
----
-
-## Code Assets
-
-| Asset | Location | Purpose |
-|-------|----------|---------|
-| AQI Evaluation | `finetuning_evaluation/05_evaluation/AQI/` | Measure alignment quality |
-| D-STEER Steering | `literature/D_STEER/steering/` | Extract steering vectors |
-| Eval Utilities | `finetuning_evaluation/05_evaluation/eval_utils/` | Shared tools |

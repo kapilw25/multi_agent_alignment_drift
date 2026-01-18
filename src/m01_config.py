@@ -33,20 +33,20 @@ DIM_REDUCTION = "tsne"
 RANDOM_SEED = 42
 SAMPLES_SANITY = 100
 SAMPLES_FULL = 200
-BATCH_SIZE = 4  # Default batch size
+BATCH_SIZE = 16  # Default batch size
 
-# Per-model batch sizes (for memory management on A10 24GB)
-# Larger models need smaller batch sizes to avoid OOM
+# Per-model batch sizes (for memory management on A100 80GB)
+# With 80GB VRAM, larger batch sizes improve throughput
 MODEL_BATCH_SIZES = {
-    "Llama3_8B": 4,    # ~16 GB model
-    "Phi3_Mini": 4,    # ~8 GB model
-    "Mistral_7B": 4,   # ~14 GB model
-    "Qwen2_7B": 4,     # ~14 GB model
-    "Gemma2_9B": 1,    # ~18 GB model - needs batch_size=1 to fit
-    "Falcon_7B": 4,    # ~14 GB model
-    "Zephyr_7B": 4,    # ~14 GB model
-    "Yi_6B": 4,        # ~12 GB model
-    "DeepSeek_7B": 4,  # ~14 GB model
+    "Llama3_8B": 16,   # ~16 GB model
+    "Phi3_Mini": 16,   # ~8 GB model
+    "Mistral_7B": 16,  # ~14 GB model
+    "Qwen2_7B": 16,    # ~14 GB model
+    "Gemma2_9B": 8,    # ~18 GB model - larger model, conservative batch
+    "Falcon_7B": 16,   # ~14 GB model
+    "Zephyr_7B": 16,   # ~14 GB model
+    "Yi_6B": 16,       # ~12 GB model
+    "DeepSeek_7B": 16, # ~14 GB model
 }
 
 def get_batch_size(model_key: str) -> int:
