@@ -2,6 +2,7 @@
 
 > **Scripts**: `src/m01_config.py`, `src/m02_measure_baseline_aqi.py`
 > **Execution**: GPU Server Only (Nvidia CUDA)
+> **GPU**: A10 24GB (sequential processing, 1 model at a time)
 
 ---
 
@@ -31,8 +32,8 @@ Output: /path/to/outputs/phase1_baseline_aqi
 
 **Expected Console Output**:
 ```
-GPU: NVIDIA A100-SXM4-80GB
-Memory: 80.0 GB
+GPU: NVIDIA A10
+Memory: 24.0 GB
 
 ============================================================
 Phase 1: Multi-Architecture AQI Baseline (GPU Only)
@@ -144,15 +145,43 @@ outputs/phase1_baseline_aqi/
 
 ---
 
+## GPU Memory Usage (Sequential Processing)
+
+Models are loaded **one at a time** with explicit unloading between evaluations:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    A10 24GB VRAM                           │
+├────────────────────────────────────────────────────────────┤
+│ Model           │ Size (fp16) │ + Overhead │ Peak VRAM    │
+├─────────────────┼─────────────┼────────────┼──────────────┤
+│ Llama3_8B       │ ~16 GB      │ ~4 GB      │ ~20 GB       │
+│ Phi3_Mini       │ ~8 GB       │ ~3 GB      │ ~11 GB       │
+│ Mistral_7B      │ ~14 GB      │ ~4 GB      │ ~18 GB       │
+│ Qwen2_7B        │ ~14 GB      │ ~4 GB      │ ~18 GB       │
+│ Gemma2_9B       │ ~18 GB      │ ~4 GB      │ ~22 GB       │
+└─────────────────┴─────────────┴────────────┴──────────────┘
+
+Processing Flow:
+  Load Llama → Evaluate → Unload → torch.cuda.empty_cache()
+  Load Phi3  → Evaluate → Unload → torch.cuda.empty_cache()
+  ... (repeat for all 5 models)
+```
+
+**Peak VRAM**: ~22 GB (Gemma2_9B) — fits in A10 24GB
+
+---
+
 ## Success Criteria
 
 | Criterion | Expected |
 |-----------|----------|
-| All 5 models evaluated | Yes |
+| All 5 models evaluated | Yes (sequential) |
 | AQI scores in range [0-100] | Yes |
 | Baseline model identified | Highest AQI |
-| No CUDA OOM errors | Batch size = 4 |
+| No CUDA OOM errors | A10 24GB, batch size = 4 |
 | Embeddings cached | .pkl files saved |
+| Peak VRAM usage | < 24 GB |
 
 ---
 
