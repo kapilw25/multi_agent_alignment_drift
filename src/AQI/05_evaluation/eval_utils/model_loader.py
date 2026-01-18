@@ -22,8 +22,9 @@ from peft import PeftModel
 from huggingface_hub import HfApi
 
 # Add project paths
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root / "comparative_study" / "0c_utils"))
+# This file is in src/AQI/05_evaluation/eval_utils/model_loader.py (5 levels deep)
+project_root = Path(__file__).parent.parent.parent.parent.parent
+sys.path.insert(0, str(project_root / "src" / "AQI" / "0c_utils"))
 
 from model_utils import load_hf_token
 
@@ -47,13 +48,13 @@ MODELS = {
         "is_standalone": True,  # Full model, not LoRA adapter
         "base_model": "meta-llama/Llama-3.1-8B",
     },
-    "Phi3_Mini": {
-        "hf_repo": "microsoft/Phi-3-mini-4k-instruct",
-        "display_name": "Phi-3-Mini",
-        "use_instruction": True,
-        "is_standalone": True,
-        "base_model": "microsoft/Phi-3-mini-4k-instruct",
-    },
+    # "Phi3_Mini": {  # Skipped: DynamicCache incompatibility with transformers 4.56+
+    #     "hf_repo": "microsoft/Phi-3-mini-4k-instruct",
+    #     "display_name": "Phi-3-Mini",
+    #     "use_instruction": True,
+    #     "is_standalone": True,
+    #     "base_model": "microsoft/Phi-3-mini-4k-instruct",
+    # },
     "Mistral_7B": {
         "hf_repo": "mistralai/Mistral-7B-Instruct-v0.3",
         "display_name": "Mistral-7B",
@@ -75,6 +76,34 @@ MODELS = {
         "is_standalone": True,
         "base_model": "google/gemma-2-9b",
     },
+    "Falcon_7B": {
+        "hf_repo": "tiiuae/falcon-7b-instruct",
+        "display_name": "Falcon-7B",
+        "use_instruction": True,
+        "is_standalone": True,
+        "base_model": "tiiuae/falcon-7b",
+    },
+    "Zephyr_7B": {
+        "hf_repo": "HuggingFaceH4/zephyr-7b-beta",
+        "display_name": "Zephyr-7B",
+        "use_instruction": True,
+        "is_standalone": True,
+        "base_model": "HuggingFaceH4/zephyr-7b-beta",
+    },
+    # "Yi_6B": {  # Skipped: Disk space error
+    #     "hf_repo": "01-ai/Yi-1.5-6B-Chat",
+    #     "display_name": "Yi-1.5-6B",
+    #     "use_instruction": True,
+    #     "is_standalone": True,
+    #     "base_model": "01-ai/Yi-1.5-6B",
+    # },
+    # "DeepSeek_7B": {  # Skipped: Disk space error
+    #     "hf_repo": "deepseek-ai/deepseek-llm-7b-chat",
+    #     "display_name": "DeepSeek-7B",
+    #     "use_instruction": True,
+    #     "is_standalone": True,
+    #     "base_model": "deepseek-ai/deepseek-llm-7b-base",
+    # },
     # ===================================================================
     # Original LoRA Adapter Models (finetuning experiments)
     # ===================================================================

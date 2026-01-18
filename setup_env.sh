@@ -38,15 +38,15 @@ setup_base() {
     echo ""
 
     # Create virtual environment
-    if [ ! -d "venv_Agent_Alignment" ]; then
+    if [ ! -d "venv_Agnt_Algnmt" ]; then
         echo "Creating virtual environment..."
-        python3 -m venv venv_Agent_Alignment
+        python3 -m venv venv_Agnt_Algnmt
     else
         echo "Virtual environment already exists"
     fi
 
     # Activate virtual environment
-    source venv_Agent_Alignment/bin/activate
+    source venv_Agnt_Algnmt/bin/activate
 
     # Upgrade pip
     echo "Upgrading pip..."
@@ -72,7 +72,7 @@ if [ "$1" = "--mac" ]; then
     echo "============================================"
     echo ""
     echo "To activate environment:"
-    echo "  source venv_Agent_Alignment/bin/activate"
+    echo "  source venv_Agnt_Algnmt/bin/activate"
     echo ""
     echo "Run tests:"
     echo "  python src/m01_config.py"
@@ -98,7 +98,7 @@ if [ "$1" = "--gpu" ]; then
 
     # 0. Install system dependencies
     echo ""
-    echo "[0/6] Installing system dependencies..."
+    echo "[0/7] Installing system dependencies..."
     sudo apt update && sudo apt install -y \
         texlive-latex-base \
         texlive-latex-extra \
@@ -111,7 +111,7 @@ if [ "$1" = "--gpu" ]; then
 
     # 1. Install Python 3.12
     echo ""
-    echo "[1/6] Installing Python 3.12..."
+    echo "[1/7] Installing Python 3.12..."
     sudo apt install -y software-properties-common
     sudo add-apt-repository -y ppa:deadsnakes/ppa
     sudo apt update
@@ -119,22 +119,27 @@ if [ "$1" = "--gpu" ]; then
 
     # 2. Install PyTorch 2.5.1 with CUDA 12.4
     echo ""
-    echo "[2/6] Installing PyTorch 2.5.1+cu124..."
+    echo "[2/7] Installing PyTorch 2.5.1+cu124..."
     pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
 
     # 3. Verify PyTorch
     echo ""
-    echo "[3/6] Verifying PyTorch..."
+    echo "[3/7] Verifying PyTorch..."
     python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.version.cuda}, Available: {torch.cuda.is_available()}')"
 
     # 4. Install GPU requirements
     echo ""
-    echo "[4/6] Installing GPU requirements..."
+    echo "[4/7] Installing GPU requirements..."
     pip install -r requirements_gpu.txt
 
-    # 5. Install Flash-Attention
+    # 5. Uninstall torchao (incompatible with torch 2.5.1 + transformers)
     echo ""
-    echo "[5/6] Installing Flash-Attention 2.8.3..."
+    echo "[5/7] Removing incompatible torchao..."
+    pip uninstall torchao -y 2>/dev/null || true
+
+    # 6. Install Flash-Attention
+    echo ""
+    echo "[6/7] Installing Flash-Attention 2.8.3..."
     WHEEL_NAME="flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl"
     WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl"
 
@@ -142,9 +147,9 @@ if [ "$1" = "--gpu" ]; then
     pip install "$WHEEL_NAME"
     rm -f "$WHEEL_NAME"
 
-    # 6. Final verification
+    # 7. Final verification
     echo ""
-    echo "[6/6] Verifying GPU setup..."
+    echo "[7/7] Verifying GPU setup..."
     python -c "
 import torch
 import transformers

@@ -1,0 +1,19 @@
+{
+  "baseline_model": "Mistral_7B",
+  "baseline_aqi": 82.11,
+  "all_scores": {
+    "Mistral_7B": 82.11,
+    "Zephyr_7B": 70.90,
+    "Falcon_7B": 56.01,
+    "Llama3_8B": 55.00,
+    "Qwen2_7B": 55.00,
+    "Gemma2_9B": 55.00
+  },
+  "skipped_models": {
+    "Yi_6B": "Disk space error",
+    "DeepSeek_7B": "Disk space error",
+    "Phi3_Mini": "DynamicCache incompatibility"
+  },
+  "timestamp": "2026-01-18T05:23:33.823206",
+  "notes": "6 of 8 models evaluated successfully. Disk space constraints prevented Yi_6B and DeepSeek_7B evaluation."
+}

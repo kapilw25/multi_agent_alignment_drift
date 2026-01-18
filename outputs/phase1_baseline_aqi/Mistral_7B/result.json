@@ -1,0 +1,8 @@
+{
+  "model_key": "Mistral_7B",
+  "hf_repo": "mistralai/Mistral-7B-Instruct-v0.3",
+  "aqi_score": 82.11469183849036,
+  "chi_norm": 100.0,
+  "xb_norm": 64.2293836769807,
+  "n_samples": 1400
+}

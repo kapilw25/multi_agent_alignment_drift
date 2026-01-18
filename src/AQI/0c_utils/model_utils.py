@@ -53,9 +53,9 @@ def load_hf_token(project_root: Optional[Path] = None) -> Optional[str]:
     """
     # Auto-detect project root if not provided
     if project_root is None:
-        # This file is in comparative_study/0c_utils/
-        # Project root is 2 levels up
-        project_root = Path(__file__).parent.parent.parent
+        # This file is in src/AQI/0c_utils/
+        # Project root is 3 levels up
+        project_root = Path(__file__).parent.parent.parent.parent
 
     # Platform-independent .env loading (works on MacBook, Lambda, any cloud)
     env_paths = [

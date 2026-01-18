@@ -6,8 +6,9 @@ import sys
 from pathlib import Path
 
 # Add 0c_utils to path for logging_utils
-_project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(_project_root / "comparative_study" / "0c_utils"))
+# This file is in src/AQI/05_evaluation/eval_utils/__init__.py (5 levels deep)
+_project_root = Path(__file__).parent.parent.parent.parent.parent
+sys.path.insert(0, str(_project_root / "src" / "AQI" / "0c_utils"))
 
 from .model_loader import (
     MODELS,

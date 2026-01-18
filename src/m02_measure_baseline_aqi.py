@@ -2,9 +2,9 @@
 Phase 1: Measure Baseline AQI for 5 Architectures (GPU Only)
 Uses src/AQI/05_evaluation/AQI/evaluation.py
 
-    python src/m02_measure_baseline_aqi.py --mode sanity
-    python src/m02_measure_baseline_aqi.py --mode full
-    python src/m02_measure_baseline_aqi.py --models Llama3_8B Mistral_7B
+    python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/log1.log
+    python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/log2.log
+    python -u src/m02_measure_baseline_aqi.py --models Llama3_8B Mistral_7B 2>&1 | tee logs/log3.log
 """
 
 import sys
@@ -34,6 +34,7 @@ from eval_utils import (
     load_model_for_eval,
     unload_model,
     verify_hf_repos,
+    cleanup_gpu,
 )
 from aqi.aqi_dealign_xb_chi import (
     set_seed,
@@ -46,8 +47,10 @@ from aqi.aqi_dealign_xb_chi import (
 # Import local config
 from m01_config import (
     PHASE1_MODEL_KEYS, DATASET_NAME, GAMMA, DIM_REDUCTION,
-    RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, BATCH_SIZE, OUTPUT_DIR
+    RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, BATCH_SIZE, OUTPUT_DIR,
+    get_batch_size,
 )
+from utils.plot_aqi import create_all_plots
 
 
 # =============================================================================
@@ -96,23 +99,29 @@ def run_phase1(model_keys, samples_per_category, output_dir):
         print(f"HF Repo: {model_info['hf_repo']}")
         print(f"{'=' * 60}")
 
+        model = None
+        tokenizer = None
         try:
             # Load model using eval_utils (handles standalone + LoRA)
             model, tokenizer = load_model_for_eval(model_key)
 
-            # Get embeddings
+            # Get embeddings (use per-model batch size for memory management)
+            batch_size = get_batch_size(model_key)
             cache_file = model_output_dir / f"embeddings_{model_key}.pkl"
+            print(f"Using batch_size={batch_size} for {model_key}")
             processed_df = process_model_data(
                 model, tokenizer, dataset_df,
                 model_name=model_info["display_name"],
                 cache_file=str(cache_file),
-                batch_size=BATCH_SIZE
+                batch_size=batch_size
             )
 
-            # Free GPU memory
+            # Free GPU memory before AQI calculation
             unload_model(model)
-            del model
-            torch.cuda.empty_cache()
+            model = None
+            del tokenizer
+            tokenizer = None
+            cleanup_gpu()
 
             # Calculate AQI
             results, embeddings_3d, _, _ = analyze_by_axiom(
@@ -150,7 +159,23 @@ def run_phase1(model_keys, samples_per_category, output_dir):
             print(f"ERROR: {e}")
             import traceback
             traceback.print_exc()
-            continue
+
+        finally:
+            # Always cleanup GPU memory - aggressive cleanup
+            if model is not None:
+                try:
+                    unload_model(model)
+                except:
+                    pass
+                model = None
+            if tokenizer is not None:
+                del tokenizer
+                tokenizer = None
+            cleanup_gpu()
+            # Print memory status for debugging
+            if torch.cuda.is_available():
+                free, total = torch.cuda.mem_get_info()
+                print(f"GPU Memory: {free/1e9:.1f}GB free / {total/1e9:.1f}GB total")
 
     return all_results
 
@@ -189,6 +214,14 @@ def print_summary(results, output_dir):
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"\nSummary: {summary_path}")
+
+    # Generate bar plots
+    print(f"\n{'=' * 60}")
+    print("Generating AQI Plots")
+    print(f"{'=' * 60}")
+    plot_paths = create_all_plots(output_dir)
+    for name, path in plot_paths.items():
+        print(f"  {name}: {path}")
 
 
 # =============================================================================

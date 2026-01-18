@@ -1,0 +1,8 @@
+{
+  "model_key": "Zephyr_7B",
+  "hf_repo": "HuggingFaceH4/zephyr-7b-beta",
+  "aqi_score": 70.90371531211207,
+  "chi_norm": 100.0,
+  "xb_norm": 41.80743062422415,
+  "n_samples": 1400
+}

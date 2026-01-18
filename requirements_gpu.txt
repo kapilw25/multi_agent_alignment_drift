@@ -14,6 +14,7 @@ accelerate>=0.34.0
 bitsandbytes>=0.44.0
 xformers==0.0.29
 triton
+# torchao removed - incompatible with torch 2.5.1 + transformers
 
 # =============================================================================
 # LoRA / PEFT
@@ -28,3 +29,8 @@ unsloth
 unsloth_zoo
 cut_cross_entropy
 hf_transfer
+
+# =============================================================================
+# LLM-as-Judge (Fireworks API)
+# =============================================================================
+litellm
