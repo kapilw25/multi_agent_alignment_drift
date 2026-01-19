@@ -1,6 +1,6 @@
 """
-Phase 1: Measure Baseline AQI for 6 Architectures (GPU Only)
-Checkpointing enabled - resumes from last completed model on crash.
+Phase 1: Baseline Selection - Measure AQI for 6 Architectures (GPU Only)
+Identifies per-axiom weaknesses and selects baseline model. Checkpointing enabled.
 
     python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
     python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log

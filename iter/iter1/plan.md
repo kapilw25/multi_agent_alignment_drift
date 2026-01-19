@@ -1,6 +1,7 @@
-# Multi-Agent Alignment Drift - Research Plan
+# MAHALS: Multi-Agent Homophilic Alignment via Latent Steering
 
-> **Goal**: Resolve alignment drift across multi-architecture LLMs (Llama, Mistral, etc.) working in the same environment
+> **Goal**: Achieve alignment homophily across multi-architecture LLMs through latent steering
+> **Narrative**: See [goal_polished.md](../goal_polished.md) for threat model and high-level framing
 > **Status**: Phase 1 Complete, Phase 2 Ready
 > **Last Updated**: Jan 18, 2026
 
@@ -18,13 +19,15 @@
 
 | Phase | Name | Effort | Purpose | Script |
 |:-----:|:-----|:------:|:--------|:-------|
-| 1 | Measure Baseline AQI | EASY | Establish natural differences | `m02_measure_baseline_aqi.py` |
-| 2 | Extract Steering Vectors | MEDIUM | Get v_llama, v_mistral, etc. | `m03_extract_steering_vectors.py` |
-| 3 | Same-Architecture Validation | MEDIUM | Prove steering works | `m04_*.py` (TBD) |
-| 4 | Cross-Architecture Steering | HARD | Test transfer between architectures | `m05_*.py` (TBD) |
-| 4.5 | Alignment Recovery (OPTIONAL) | HIGH | Prove steering can recover broken alignment | - |
-| 5 | Multi-Agent Collaboration Test | HARD | Test collaboration-induced drift | - |
-| 6 | Game-Theoretic Equilibrium | RESEARCH | Nash equilibrium formulation | - |
+| **1** | **Baseline Selection** | EASY | Identify per-axiom weaknesses, select baseline | `m02_measure_baseline_aqi.py` |
+| **2** | **Latent Alignment via Steering** | | | |
+| 2.1 | Extract Steering Vectors | MEDIUM | Get v_llama, v_mistral, etc. | `m03_extract_steering_vectors.py` |
+| 2.2 | Same-Architecture Validation | MEDIUM | Prove steering works (AQI vs λ) | `m04_*.py` (TBD) |
+| 2.3 | Cross-Architecture Steering | HARD | Achieve homophily across architectures | `m05_*.py` (TBD) |
+| 2.4 | Alignment Recovery (OPTIONAL) | HIGH | Recover alignment after intentional degradation | - |
+| **3** | **Multi-Agent Interaction** | | | |
+| 3.1 | Collaboration Test | HARD | Test steered agents maintain alignment | - |
+| 3.2 | Game-Theoretic Equilibrium | RESEARCH | Nash equilibrium formulation | - |
 
 ---
 
@@ -93,7 +96,7 @@ Agent A (AQI=75) + Agent B (AQI=68) → After collaboration → Both degraded
 
 ## Phase Details
 
-### Phase 1: Measure Baseline AQI [COMPLETE]
+### Phase 1: Baseline Selection [COMPLETE]
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -148,7 +151,9 @@ python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_ful
 
 ---
 
-### Phase 2: Extract Steering Vectors [READY]
+### Phase 2: Latent Alignment via Steering [READY]
+
+#### Phase 2.1: Extract Steering Vectors
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -262,7 +267,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 3: Same-Architecture Validation [TODO]
+#### Phase 2.2: Same-Architecture Validation [TODO]
 
 **Goal**: Verify steering works within same architecture
 
@@ -289,7 +294,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 4: Cross-Architecture Steering [TODO]
+#### Phase 2.3: Cross-Architecture Steering [TODO]
 
 **Goal**: Test steering vector transfer between architectures
 
@@ -322,7 +327,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 4.5: Alignment Recovery [OPTIONAL]
+#### Phase 2.4: Alignment Recovery [OPTIONAL]
 
 **Goal**: Prove steering can recover alignment from intentionally degraded model
 
@@ -367,7 +372,9 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 5: Multi-Agent Collaboration Test [TODO]
+### Phase 3: Multi-Agent Interaction [TODO]
+
+#### Phase 3.1: Collaboration Test
 
 **Goal**: Test if steered agents maintain alignment during collaboration
 
@@ -378,7 +385,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 6: Game-Theoretic Equilibrium [RESEARCH]
+#### Phase 3.2: Game-Theoretic Equilibrium [RESEARCH]
 
 **Goal**: Find Nash equilibrium for multi-agent alignment states
 
