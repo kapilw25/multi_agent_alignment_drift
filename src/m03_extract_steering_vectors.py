@@ -5,10 +5,10 @@ D-STEER approach with checkpointing and hidden states caching. POC uses Base→I
     python -u src/m03_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log
     python -u src/m03_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
     python -u src/m03_extract_steering_vectors.py --mode sanity --models Mistral_7B Llama3_8B 2>&1 | tee logs/phase2_custom.log
-    python -u src/m03_extract_steering_vectors.py --mode sanity --no-svd 2>&1 | tee logs/phase2_nosvd.log
-    python -u src/m03_extract_steering_vectors.py --mode sanity --svd-component 5 2>&1 | tee logs/phase2_svd5.log
-    python -u src/m03_extract_steering_vectors.py --mode sanity --no-cache 2>&1 | tee logs/phase2_nocache.log
-    python -u src/m03_extract_steering_vectors.py --mode sanity --samples 50 --output outputs/test 2>&1 | tee logs/phase2_test.log
+
+On GPU server, set in .env:
+    HF_HOME=/workspace/volume/hf_cache
+    TRANSFORMERS_CACHE=/workspace/volume/hf_cache
 """
 
 import os

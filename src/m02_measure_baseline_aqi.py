@@ -5,7 +5,10 @@ Identifies per-axiom weaknesses and selects baseline model. Checkpointing enable
     python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
     python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
     python -u src/m02_measure_baseline_aqi.py --mode sanity --models Llama3_8B Mistral_7B 2>&1 | tee logs/phase1_custom.log
-    python -u src/m02_measure_baseline_aqi.py --mode sanity --samples 50 --output outputs/test 2>&1 | tee logs/phase1_test.log
+
+On GPU server, set in .env:
+    HF_HOME=/workspace/volume/hf_cache
+    TRANSFORMERS_CACHE=/workspace/volume/hf_cache
 """
 
 import sys
@@ -14,13 +17,18 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
+from dotenv import load_dotenv
+
+# Load .env BEFORE importing transformers (for HF_HOME, HF_TOKEN)
+PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+
 import torch
 
 # =============================================================================
 # PATH SETUP
 # =============================================================================
 
-PROJECT_ROOT = Path(__file__).parent.parent
 SRC_DIR = PROJECT_ROOT / "src"
 AQI_DIR = SRC_DIR / "AQI"
 
