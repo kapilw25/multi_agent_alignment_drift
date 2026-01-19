@@ -519,7 +519,8 @@ def apply_svd_decomposition(
     explained_var_dir.mkdir(parents=True, exist_ok=True)
 
     for layer in tqdm(range(num_layers), desc="SVD per layer"):
-        X = stacked_differences[:, layer, :].numpy()  # num_samples x hidden_dim
+        # Convert bfloat16 to float32 (numpy doesn't support bfloat16)
+        X = stacked_differences[:, layer, :].float().numpy()  # num_samples x hidden_dim
 
         # Center the data
         X_centered = X - X.mean(axis=0)
@@ -546,7 +547,7 @@ def apply_svd_decomposition(
 
         # Get steering vector for specified component
         # Scale by original steering vector norm (matching D_STEER)
-        steering_vector = torch.tensor(Vt[component], dtype=torch.float32) * h_delta[layer].norm()
+        steering_vector = torch.tensor(Vt[component], dtype=torch.float32) * h_delta[layer].float().norm()
         steering_vector_component[(layer, component)] = steering_vector
 
     # Stack into tensor
@@ -633,8 +634,8 @@ def extract_steering_vectors(
             print_gpu_memory()
 
             # === Compute steering vectors ===
-            # Get per-model batch size (synced with m02)
-            model_batch_size = get_batch_size(model_key)
+            # Get per-model batch size for phase 2 (two models loaded)
+            model_batch_size = get_batch_size(model_key, phase=2)
             print(f"\n[3/3] Computing steering vectors (batch_size={model_batch_size})...")
             result = compute_steering_vectors_dsteer(
                 base_model,

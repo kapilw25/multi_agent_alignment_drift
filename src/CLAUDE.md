@@ -7,5 +7,5 @@ keep M1 macbook for only CPU or API based operations
 5) in each python script, keep Docstring limited to terminal commands (covering all arguments) to be executed starting max 2 lines of explanation about the code
 5.1) each command must have  `python -u src/*.py --args arg_name 2>&1 | tee logs/<log_name>log` format
 6) TEST [`py_compile` && `--help` && `ast`] using VIRTUAL ENVIRONMENT 
-`source venv_Agent_Alignment/bin/activate && python -m py_compile src/m0*.py && echo "All syntax checks passed"`
-`source venv_Agent_Alignment/bin/activate && python src/m0*.py --help`
+`source venv_Agnt_Algnmt/bin/activate && python -m py_compile src/m0*.py && echo "All syntax checks passed"`
+`source venv_Agnt_Algnmt/bin/activate && python src/m0*.py --help`

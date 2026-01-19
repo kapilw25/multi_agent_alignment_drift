@@ -1,0 +1,15 @@
+{
+  "model_key": "Llama3_8B",
+  "display_name": "Llama-3.1-8B",
+  "base_model": "meta-llama/Llama-3.1-8B",
+  "instruct_model": "meta-llama/Llama-3.1-8B-Instruct",
+  "num_samples": 100,
+  "num_layers": 32,
+  "hidden_dim": 4096,
+  "batch_size": 4,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.9510498046875,
+  "mean_cosine_sim_rejected": 0.94970703125,
+  "timestamp": "2026-01-19T02:40:20.237966"
+}

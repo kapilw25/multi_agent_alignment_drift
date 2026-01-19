@@ -271,6 +271,8 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 **Goal**: Verify steering works within same architecture
 
+**Script**: `src/m04_same_arch_validation.py` (TBD)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    SAME-ARCHITECTURE STEERING TEST                           │
@@ -290,7 +292,43 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Implementation Details**:
+
+1. **Load Base Model**: Load `{model_key}` base model (e.g., `mistralai/Mistral-7B-v0.3`)
+
+2. **Load Steering Vector**:
+   ```python
+   v = torch.load(f"outputs/phase2_steering_vectors/{model_key}/steering_vector.pth")
+   # Shape: [num_layers, hidden_dim] e.g., [32, 4096] for Mistral
+   ```
+
+3. **Steering Formula** (hook into forward pass):
+   ```python
+   # For each layer l:
+   h_steered[l] = h_base[l] + λ * v[l]
+   ```
+
+4. **λ Values**: `[0.0, 0.25, 0.5, 0.75, 1.0]`
+   - More granular than [0, 0.5, 1] to catch non-monotonic behavior
+
+5. **Evaluation**: For each λ, measure AQI on LITMUS dataset (same as Phase 1)
+
+6. **Output**:
+   ```
+   outputs/phase2_same_arch_validation/
+   ├── {model_key}/
+   │   ├── aqi_vs_lambda.png          # AQI vs λ curve
+   │   ├── aqi_vs_lambda.json         # Raw data
+   │   └── per_axiom_curves.png       # Per-axiom breakdown
+   └── summary.json                   # All models comparison
+   ```
+
 **Expected**: Monotonic AQI increase with λ
+
+**Best Candidates** (from Phase 2.1 CosSim analysis):
+- Zephyr_7B (CosSim=0.77) - highest steering potential
+- Falcon_7B (CosSim=0.78) - high steering potential
+- Mistral_7B (CosSim=0.83) - baseline model, good reference
 
 ---
 

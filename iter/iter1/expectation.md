@@ -331,9 +331,104 @@ Select option:
 
 ---
 
+## Actual Results (Sanity Mode)
+
+### Phase 1 Results (100 samples)
+
+**Baseline Model**: Mistral_7B (AQI=55.0)
+
+| Model | AQI Score |
+|-------|-----------|
+| Mistral_7B | 55.0 |
+| Zephyr_7B | 55.0 |
+| Llama3_8B | 34.8 |
+| Gemma2_9B | 34.3 |
+| Qwen2_7B | 15.0 |
+| Falcon_7B | 5.0 |
+
+### Phase 2.1 Results (100 samples)
+
+| Model | Layers | Dim | CosSim (Chosen) | CosSim (Rejected) |
+|-------|--------|-----|-----------------|-------------------|
+| Mistral_7B | 32 | 4096 | 0.8304 | 0.8387 |
+| Llama3_8B | 32 | 4096 | 0.9510 | 0.9497 |
+| Qwen2_7B | 28 | 3584 | 0.9872 | 0.9890 |
+| Gemma2_9B | 42 | 3584 | 0.9221 | 0.9160 |
+| Zephyr_7B | 32 | 4096 | 0.7672 | 0.7856 |
+| Falcon_7B | 32 | 4544 | 0.7765 | 0.7766 |
+
+---
+
+## Plot Analysis
+
+### 1. Cosine Similarity Comparison (`cosine_similarity_comparison.png`)
+
+**What it shows**: Mean cosine similarity between Base and Instruct model hidden states.
+
+**Key Findings**:
+- **Qwen2_7B (0.99)**: Base ≈ Instruct internally → minimal instruction tuning effect
+- **Llama3_8B (0.95)**: Small internal transformation
+- **Gemma2_9B (0.92)**: Moderate transformation
+- **Mistral_7B (0.83)**: Noticeable transformation (baseline model)
+- **Falcon_7B/Zephyr_7B (0.77-0.78)**: Largest transformation → **best steering candidates**
+
+**Implication**: Lower CosSim = more room for steering. Zephyr and Falcon have the most extractable alignment signal.
+
+### 2. Model Dimensions (`model_dimensions.png`)
+
+**What it shows**: Architectural heterogeneity across models.
+
+**Key Findings**:
+- **Layers**: Gemma2_9B (42) > Most (32) > Qwen2_7B (28)
+- **Hidden Dim**: Falcon (4544) > Mistral/Llama/Zephyr (4096) > Qwen/Gemma (3584)
+
+**Implication**: Cross-architecture steering requires dimension projection. Same-architecture validation should work without projection.
+
+### 3. Steering Vector Norms (`steering_norms_comparison.png`)
+
+**What it shows**: L2 norm of steering vectors per layer.
+
+**Key Findings**:
+- **Gemma2_9B**: Dramatically higher norms (up to 350) - outlier
+- **All others**: Norms under 70
+- **Pattern**: All models show increasing norms toward later layers
+- **Zephyr_7B**: Spike at layer 30-31
+
+**Implication**:
+- Alignment signal concentrates in deeper layers (middle-to-late)
+- Gemma's large norms suggest more aggressive internal transformation OR different scaling
+- For steering, focus on layers 20-32 (where norms are highest)
+
+---
+
+## Steering Potential Ranking
+
+Based on CosSim (lower = more steer-able):
+
+| Rank | Model | CosSim | Steering Potential |
+|------|-------|--------|-------------------|
+| 1 | Zephyr_7B | 0.77 | **Highest** |
+| 2 | Falcon_7B | 0.78 | **High** |
+| 3 | Mistral_7B | 0.83 | Good (baseline) |
+| 4 | Gemma2_9B | 0.92 | Moderate |
+| 5 | Llama3_8B | 0.95 | Low |
+| 6 | Qwen2_7B | 0.99 | **Minimal** |
+
+---
+
 ## Next Steps
 
 | After Phase | Next Action |
 |-------------|-------------|
-| Phase 1 | Identify weakest LLMs per axiom from heatmap → Proceed to Phase 2.1 |
-| Phase 2.1 | Use steering vectors in Phase 2.2 (Same-Architecture Validation) |
+| Phase 1 | ✅ Complete - Baseline = Mistral_7B (AQI=55.0) |
+| Phase 2.1 | ✅ Complete - 6 steering vectors extracted |
+| **Phase 2.2** | **NEXT**: Same-Architecture Validation (test if steering works) |
+| Full Mode | Run AFTER Phase 2.2 validates the approach |
+
+### Recommended Path
+
+```
+Phase 2.2 (Sanity) → If works → Full Mode (Phase 1 + 2.1) → Phase 2.3 (Cross-Arch)
+```
+
+**Rationale**: Validate approach with sanity mode (100 samples) before investing compute in full mode (1000 samples). If steering doesn't work, full mode extraction is wasted effort.

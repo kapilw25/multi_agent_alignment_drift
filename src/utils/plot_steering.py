@@ -52,9 +52,10 @@ def plot_cosine_similarity(
     fig, ax = plt.subplots(figsize=figsize)
 
     if isinstance(chosen_similarity, torch.Tensor):
-        chosen_similarity = chosen_similarity.numpy()
+        # Convert to float32 (numpy doesn't support bfloat16)
+        chosen_similarity = chosen_similarity.float().numpy()
     if isinstance(rejected_similarity, torch.Tensor):
-        rejected_similarity = rejected_similarity.numpy()
+        rejected_similarity = rejected_similarity.float().numpy()
 
     ax.plot(chosen_similarity, label='Chosen', color='blue', marker='o')
     ax.plot(rejected_similarity, label='Rejected', color='red', marker='x')
@@ -91,7 +92,8 @@ def plot_steering_vector_norms(
         matplotlib Figure object
     """
     if isinstance(steering_vector, torch.Tensor):
-        norms = torch.norm(steering_vector, dim=1).numpy()
+        # Convert to float32 (numpy doesn't support bfloat16)
+        norms = torch.norm(steering_vector.float(), dim=1).numpy()
     else:
         norms = np.linalg.norm(steering_vector, axis=1)
 
@@ -250,7 +252,8 @@ def plot_steering_norms_comparison(
             sv_file = model_dir / "steering_vector.pth"
             if sv_file.exists():
                 sv = torch.load(sv_file, map_location="cpu")
-                norms = torch.norm(sv, dim=1).numpy()
+                # Convert to float32 (numpy doesn't support bfloat16)
+                norms = torch.norm(sv.float(), dim=1).numpy()
                 model_norms[model_dir.name] = norms
 
     if not model_norms:

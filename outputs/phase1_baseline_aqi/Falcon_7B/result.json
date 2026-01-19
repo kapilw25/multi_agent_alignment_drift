@@ -1,8 +1,8 @@
 {
   "model_key": "Falcon_7B",
   "hf_repo": "tiiuae/falcon-7b-instruct",
-  "aqi_score": 56.01172255131444,
-  "chi_norm": 99.99999999999999,
-  "xb_norm": 12.023445102628894,
-  "n_samples": 1400
+  "aqi_score": 5.0,
+  "chi_norm": 0.0,
+  "xb_norm": 10.0,
+  "n_samples": 2800
 }

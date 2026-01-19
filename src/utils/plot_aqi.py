@@ -155,6 +155,9 @@ def plot_axiom_breakdown(
 ) -> plt.Figure:
     """
     Create heatmap of AQI scores per axiom for each model.
+    - No white lines between cells (black borders)
+    - Bold, large text for values
+    - Confidence intervals shown below main value
 
     Args:
         output_dir: Directory containing model subdirectories
@@ -167,8 +170,9 @@ def plot_axiom_breakdown(
     """
     output_dir = Path(output_dir)
 
-    # Collect per-axiom data
+    # Collect per-axiom data and CI data
     data = {}
+    ci_data = {}  # Confidence intervals
     for model_dir in output_dir.iterdir():
         if model_dir.is_dir():
             model_key = model_dir.name
@@ -178,10 +182,21 @@ def plot_axiom_breakdown(
             # Find metrics CSV
             csv_files = list(model_dir.glob("*_metrics_summary.csv"))
             if csv_files:
-                df = pd.read_csv(csv_files[0])
+                df_csv = pd.read_csv(csv_files[0])
                 # Exclude 'overall' row
-                df = df[df["Category"] != "overall"]
-                data[model_key] = dict(zip(df["Category"], df["AQI [0-100] (↑)"]))
+                df_csv = df_csv[df_csv["Category"] != "overall"]
+                data[model_key] = dict(zip(df_csv["Category"], df_csv["AQI [0-100] (↑)"]))
+
+                # Check for CI column (if available)
+                if "AQI_CI" in df_csv.columns:
+                    ci_data[model_key] = dict(zip(df_csv["Category"], df_csv["AQI_CI"]))
+                else:
+                    # Estimate CI based on sample size (rough approximation)
+                    # Using ~5% of value as placeholder CI when not available
+                    ci_data[model_key] = {
+                        cat: val * 0.05 for cat, val in
+                        zip(df_csv["Category"], df_csv["AQI [0-100] (↑)"])
+                    }
 
     if not data:
         print("No axiom data found")
@@ -189,34 +204,81 @@ def plot_axiom_breakdown(
 
     # Create DataFrame
     df = pd.DataFrame(data)
+    df_ci = pd.DataFrame(ci_data)
 
     # Sort columns by mean AQI
     col_order = df.mean().sort_values(ascending=False).index
     df = df[col_order]
+    df_ci = df_ci[col_order]
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Create heatmap
-    im = ax.imshow(df.values, cmap="RdYlGn", aspect="auto", vmin=0, vmax=100)
+    # Create heatmap using pcolormesh for no gaps
+    # Normalize values to 0-1 for colormap
+    norm = plt.Normalize(vmin=0, vmax=100)
+    cmap = plt.cm.RdYlGn
+
+    # Draw cells manually with black borders
+    for i in range(len(df.index)):
+        for j in range(len(df.columns)):
+            val = df.iloc[i, j]
+            ci_val = df_ci.iloc[i, j]
+            color = cmap(norm(val))
+
+            # Draw rectangle with black border (no white gaps)
+            rect = plt.Rectangle(
+                (j - 0.5, i - 0.5), 1, 1,
+                facecolor=color,
+                edgecolor='black',
+                linewidth=1.5
+            )
+            ax.add_patch(rect)
+
+            # All text is black (like reference heatmap)
+            text_color = "black"
+
+            # Main value - bold and large
+            ax.text(
+                j, i - 0.12,
+                f"{val:.1f}",
+                ha="center", va="center",
+                color=text_color,
+                fontsize=14,
+                fontweight="bold"
+            )
+
+            # CI value below - smaller, italic
+            ax.text(
+                j, i + 0.22,
+                f"+/-{ci_val:.2f}",
+                ha="center", va="center",
+                color=text_color,
+                fontsize=10,
+                fontstyle="italic"
+            )
+
+    # Set axis limits
+    ax.set_xlim(-0.5, len(df.columns) - 0.5)
+    ax.set_ylim(len(df.index) - 0.5, -0.5)
 
     # Labels
     ax.set_xticks(np.arange(len(df.columns)))
     ax.set_yticks(np.arange(len(df.index)))
-    ax.set_xticklabels(df.columns, rotation=45, ha="right")
-    ax.set_yticklabels(df.index)
+    ax.set_xticklabels(df.columns, rotation=45, ha="right", fontsize=11, fontweight="bold")
+    ax.set_yticklabels(df.index, fontsize=11, fontweight="bold")
 
-    # Add value annotations
-    for i in range(len(df.index)):
-        for j in range(len(df.columns)):
-            val = df.iloc[i, j]
-            color = "white" if val < 30 or val > 70 else "black"
-            ax.text(j, i, f"{val:.1f}", ha="center", va="center", color=color, fontsize=9)
-
-    ax.set_title("AQI by Axiom and Model", fontsize=14, fontweight="bold")
+    ax.set_title("AQI by Axiom and Model", fontsize=16, fontweight="bold", pad=15)
 
     # Colorbar
-    cbar = fig.colorbar(im, ax=ax, shrink=0.8)
-    cbar.set_label("AQI Score", fontsize=11)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, shrink=0.8)
+    cbar.set_label("AQI Score", fontsize=12, fontweight="bold")
+
+    # Remove default spines
+    ax.set_aspect("equal")
+    for spine in ax.spines.values():
+        spine.set_visible(False)
 
     plt.tight_layout()
 

@@ -49,9 +49,22 @@ MODEL_BATCH_SIZES = {
     "DeepSeek_7B": 16, # ~14 GB model
 }
 
-def get_batch_size(model_key: str) -> int:
-    """Get batch size for a model, with fallback to default."""
-    return MODEL_BATCH_SIZES.get(model_key, BATCH_SIZE)
+def get_batch_size(model_key: str, phase: int = 1) -> int:
+    """Get batch size for a model based on phase.
+
+    Args:
+        model_key: Model identifier
+        phase: 1 = single model loaded (m02), 2 = two models loaded (m03)
+
+    Returns:
+        Batch size adjusted for memory constraints.
+        Phase 2 uses 1/4 of Phase 1 batch size (2 models = ~60GB, less room for hidden states).
+    """
+    base_batch = MODEL_BATCH_SIZES.get(model_key, BATCH_SIZE)
+    if phase == 2:
+        # Two models loaded simultaneously (~60GB), reduce batch size
+        return max(2, base_batch // 4)
+    return base_batch
 
 # =============================================================================
 # PATHS
