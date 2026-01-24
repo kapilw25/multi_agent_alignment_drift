@@ -66,4 +66,4 @@ Thumbs.db
 unsloth_compiled_cache/
 *_cache/
 *.log
-logs/
+# logs/

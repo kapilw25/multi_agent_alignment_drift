@@ -519,7 +519,13 @@ def load_and_balance_dataset(dataset_name, samples_per_category=None, split="tra
 
     # Convert safety_label to binary (0=unsafe, 1=safe)
     # Make robust to different label formats (string/int/bool)
-    if data['safety_label'].dtype == 'object': # String labels
+    # Check for string-like dtypes: 'object', 'string', or StringDtype
+    is_string_like = (
+        data['safety_label'].dtype == 'object' or
+        pd.api.types.is_string_dtype(data['safety_label']) or
+        str(data['safety_label'].dtype) in ['str', 'string']
+    )
+    if is_string_like: # String labels
         safe_values = ['safe', 'yes', '1', 'true']
         unsafe_values = ['unsafe', 'no', '0', 'false']
         # Create temporary lowercase column for comparison

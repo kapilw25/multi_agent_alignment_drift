@@ -1,18 +1,18 @@
 """
-Phase 2.2: Same-Architecture Steering Validation (GPU Only)
+Phase 3: Same-Architecture Steering Validation (GPU Only)
 Validates steering vectors by applying them to base models at different lambda values.
 Measures AQI vs lambda to verify monotonic alignment improvement. D_STEER-style implementation.
 
 LITMUS Dataset (hasnat79/litmus): ~20,439 total samples, ~2,919 min per axiom
   Structure: 7 axioms × 2 safety_labels × samples_per_category
 
-    python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase2_2_sanity.log
-    python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase2_2_full.log
-    python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase2_2_max.log
-    python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase2_2_custom.log
-    python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase2_2_sparse.log
-    python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase2_2_last5.log
-    python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase2_2_all.log
+    python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log
+    python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase3_full.log
+    python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase3_max.log
+    python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase3_custom.log
+    python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase3_sparse.log
+    python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase3_last5.log
+    python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
 
 Modes:
     --mode sanity: 100 samples/category →  1,400 total (~1-2 hrs)
@@ -31,6 +31,7 @@ import sys
 import gc
 import json
 import argparse
+import subprocess
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Callable
@@ -121,7 +122,7 @@ class Config:
 
 
 MODEL_REGISTRY = load_model_registry()
-OUTPUT_DIR = PROJECT_ROOT / "outputs" / "phase2_same_arch_validation"
+OUTPUT_DIR = PROJECT_ROOT / "outputs" / "phase3_same_arch_validation"
 
 
 # =============================================================================
@@ -142,6 +143,84 @@ def print_gpu_memory():
     if torch.cuda.is_available():
         free, total = torch.cuda.mem_get_info()
         print(f"GPU Memory: {free/1e9:.1f}GB free / {total/1e9:.1f}GB total")
+
+
+# =============================================================================
+# AUTO-GENERATE MISSING STEERING VECTORS
+# =============================================================================
+
+def generate_missing_steering_vectors(
+    missing_models: List[str],
+    steering_vector_dir: Path,
+    mode: str = "sanity",
+) -> bool:
+    """
+    Automatically run m03_extract_steering_vectors.py for missing models.
+
+    Args:
+        missing_models: List of model keys missing steering vectors
+        steering_vector_dir: Directory where steering vectors should be stored
+        mode: Evaluation mode (sanity/full/max)
+
+    Returns:
+        True if generation succeeded, False otherwise
+    """
+    # m03 only supports sanity/full modes, map max→full
+    m03_mode = "full" if mode == "max" else mode
+
+    print(f"\n{'=' * 60}")
+    print("AUTO-GENERATING MISSING STEERING VECTORS")
+    print(f"{'=' * 60}")
+    print(f"Missing models: {missing_models}")
+    print(f"m04 mode: {mode} → m03 mode: {m03_mode}")
+
+    # Check for stale checkpoint (marked complete but files missing)
+    checkpoint_path = steering_vector_dir / "phase2_steering_checkpoint.json"
+    if checkpoint_path.exists():
+        print(f"\nRemoving stale checkpoint: {checkpoint_path}")
+        checkpoint_path.unlink()
+
+    # Build command
+    m03_script = PROJECT_ROOT / "src" / "m03_extract_steering_vectors.py"
+    cmd = [
+        sys.executable, "-u", str(m03_script),
+        "--mode", m03_mode,
+        "--models", *missing_models,
+    ]
+
+    print(f"\nRunning: {' '.join(cmd)}")
+    print(f"{'=' * 60}\n")
+
+    try:
+        # Run m03 script and stream output
+        result = subprocess.run(
+            cmd,
+            cwd=str(PROJECT_ROOT),
+            check=True,
+        )
+
+        # Verify steering vectors were created
+        still_missing = []
+        for model_key in missing_models:
+            sv_path = steering_vector_dir / model_key / "steering_vector.pth"
+            if not sv_path.exists():
+                still_missing.append(model_key)
+
+        if still_missing:
+            print(f"\nERROR: Steering vectors still missing after generation: {still_missing}")
+            return False
+
+        print(f"\n{'=' * 60}")
+        print("STEERING VECTORS GENERATED SUCCESSFULLY")
+        print(f"{'=' * 60}\n")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"\nERROR: m03_extract_steering_vectors.py failed with exit code {e.returncode}")
+        return False
+    except Exception as e:
+        print(f"\nERROR: Failed to run m03_extract_steering_vectors.py: {e}")
+        return False
 
 
 # =============================================================================
@@ -669,7 +748,7 @@ def run_same_arch_validation(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize checkpoint manager
-    ckpt = CheckpointManager("phase2_2_validation", output_dir)
+    ckpt = CheckpointManager("phase3_validation", output_dir)
 
     # Check for existing checkpoint
     if ckpt.exists():
@@ -865,7 +944,7 @@ def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
     plt.close()
 
     # Save summary JSON
-    summary_path = output_dir / "phase2_2_summary.json"
+    summary_path = output_dir / "phase3_summary.json"
     with open(summary_path, "w") as f:
         json.dump({
             "summary": summary_data,
@@ -880,7 +959,7 @@ def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Phase 2.2: Same-Architecture Steering Validation"
+        description="Phase 3: Same-Architecture Steering Validation"
     )
     parser.add_argument(
         "--mode", choices=["sanity", "full", "max"], default="sanity",
@@ -965,7 +1044,7 @@ def main():
         print(f"ERROR: No valid models. Available: {list(MODEL_REGISTRY.keys())}")
         sys.exit(1)
 
-    # Check steering vectors exist
+    # Check steering vectors exist, auto-generate if missing
     missing_sv = []
     for model_key in model_keys:
         sv_path = config.steering_vector_dir / model_key / config.steering_vector_type
@@ -973,12 +1052,32 @@ def main():
             missing_sv.append(model_key)
 
     if missing_sv:
-        print(f"ERROR: Steering vectors not found for: {missing_sv}")
-        print(f"Run m03_extract_steering_vectors.py first for these models")
-        sys.exit(1)
+        print(f"Steering vectors not found for: {missing_sv}")
+        print(f"Auto-generating using m03_extract_steering_vectors.py...")
+
+        success = generate_missing_steering_vectors(
+            missing_models=missing_sv,
+            steering_vector_dir=config.steering_vector_dir,
+            mode=args.mode,
+        )
+
+        if not success:
+            print(f"ERROR: Failed to generate steering vectors for: {missing_sv}")
+            sys.exit(1)
+
+        # Re-verify after generation
+        still_missing = []
+        for model_key in missing_sv:
+            sv_path = config.steering_vector_dir / model_key / config.steering_vector_type
+            if not sv_path.exists():
+                still_missing.append(model_key)
+
+        if still_missing:
+            print(f"ERROR: Steering vectors still missing after generation: {still_missing}")
+            sys.exit(1)
 
     print(f"\n{'=' * 60}")
-    print("Phase 2.2: Same-Architecture Steering Validation")
+    print("Phase 3: Same-Architecture Steering Validation")
     print(f"{'=' * 60}")
     print(f"Mode: {args.mode} | Samples: {samples}")
     print(f"Dataset: {DATASET_NAME}")

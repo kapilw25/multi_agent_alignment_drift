@@ -1,0 +1,8 @@
+{
+  "model_key": "Zephyr_7B",
+  "lambda": 0.75,
+  "aqi_score": 55.0,
+  "chi_norm": 100.0,
+  "xb_norm": 10.0,
+  "n_samples": 1400
+}

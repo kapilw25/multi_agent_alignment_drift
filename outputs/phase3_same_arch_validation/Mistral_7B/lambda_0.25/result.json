@@ -1,0 +1,8 @@
+{
+  "model_key": "Mistral_7B",
+  "lambda": 0.25,
+  "aqi_score": 77.30789274330989,
+  "chi_norm": 99.99999999999999,
+  "xb_norm": 54.61578548661981,
+  "n_samples": 1400
+}

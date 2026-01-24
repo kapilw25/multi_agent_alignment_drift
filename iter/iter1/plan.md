@@ -20,14 +20,13 @@
 | Phase | Name | Effort | Purpose | Script |
 |:-----:|:-----|:------:|:--------|:-------|
 | **1** | **Baseline Selection** | EASY | Identify per-axiom weaknesses, select baseline | `m02_measure_baseline_aqi.py` |
-| **2** | **Latent Alignment via Steering** | | | |
-| 2.1 | Extract Steering Vectors | MEDIUM | Get v_llama, v_mistral, etc. | `m03_extract_steering_vectors.py` |
-| 2.2 | Same-Architecture Validation | MEDIUM | Prove steering works (AQI vs λ) | `m04_*.py` (TBD) |
-| 2.3 | Cross-Architecture Steering | HARD | Achieve homophily across architectures | `m05_*.py` (TBD) |
-| 2.4 | Alignment Recovery (OPTIONAL) | HIGH | Recover alignment after intentional degradation | - |
-| **3** | **Multi-Agent Interaction** | | | |
-| 3.1 | Collaboration Test | HARD | Test steered agents maintain alignment | - |
-| 3.2 | Game-Theoretic Equilibrium | RESEARCH | Nash equilibrium formulation | - |
+| **2** | **Extract Steering Vectors** | MEDIUM | Get v_llama, v_mistral, etc. | `m03_extract_steering_vectors.py` |
+| **3** | **Same-Architecture Validation** | MEDIUM | Prove steering works (AQI vs λ) | `m04_same_arch_validation.py` |
+| **4** | **Cross-Architecture Steering** | HARD | Achieve homophily across architectures | `m05_*.py` (TBD) |
+| **5** | **Alignment Recovery** (OPTIONAL) | HIGH | Recover alignment after intentional degradation | - |
+| **6** | **Multi-Agent Interaction** | | | |
+| 6.1 | Collaboration Test | HARD | Test steered agents maintain alignment | - |
+| 6.2 | Game-Theoretic Equilibrium | RESEARCH | Nash equilibrium formulation | - |
 
 ---
 
@@ -39,7 +38,7 @@
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
   PHASE 1                    PHASE 2                    PHASE 3                 PHASE 4
-  Baseline AQI               Steering Vectors           Same-Arch Test          Cross-Arch Test
+  Baseline AQI               Steering Vectors           Same-Arch Validation    Cross-Arch Steering
   ─────────────              ────────────────           ──────────────          ───────────────
 
   ┌─────────┐               ┌─────────┐ ┌─────────┐
@@ -165,9 +164,7 @@ python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_ful
 
 ---
 
-### Phase 2: Latent Alignment via Steering [READY]
-
-#### Phase 2.1: Extract Steering Vectors
+### Phase 2: Extract Steering Vectors [COMPLETE]
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -279,7 +276,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 - `steering_norms_comparison.png` - Norm curves overlay
 - `model_dimensions.png` - Architecture comparison
 
-#### Phase 2.1 Results Summary
+#### Phase 2 Results Summary
 
 | Model | Layers | Dim | CosSim | Steering Potential |
 |-------|--------|-----|--------|-------------------|
@@ -296,11 +293,11 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-#### Phase 2.2: Same-Architecture Validation [TODO]
+### Phase 3: Same-Architecture Validation [IN PROGRESS]
 
 **Goal**: Verify steering works within same architecture
 
-**Script**: `src/m04_same_arch_validation.py` (TBD)
+**Script**: `src/m04_same_arch_validation.py`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -344,7 +341,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 6. **Output**:
    ```
-   outputs/phase2_same_arch_validation/
+   outputs/phase3_same_arch_validation/
    ├── {model_key}/
    │   ├── aqi_vs_lambda.png          # AQI vs λ curve
    │   ├── aqi_vs_lambda.json         # Raw data
@@ -354,7 +351,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 **Expected**: Monotonic AQI increase with λ
 
-**Recommended Models for Phase 2.2** (combining Phase 1 AQI + Phase 2.1 CosSim):
+**Recommended Models for Phase 3** (combining Phase 1 AQI + Phase 2 CosSim):
 
 | Priority | Model | CosSim | AQI | Why |
 |----------|-------|--------|-----|-----|
@@ -369,7 +366,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-#### Phase 2.3: Cross-Architecture Steering [TODO]
+### Phase 4: Cross-Architecture Steering [TODO]
 
 **Goal**: Test steering vector transfer between architectures
 
@@ -402,7 +399,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-#### Phase 2.4: Alignment Recovery [OPTIONAL]
+### Phase 5: Alignment Recovery [OPTIONAL]
 
 **Goal**: Prove steering can recover alignment from intentionally degraded model
 
@@ -447,9 +444,9 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 3: Multi-Agent Interaction [TODO]
+### Phase 6: Multi-Agent Interaction [TODO]
 
-#### Phase 3.1: Collaboration Test
+#### Phase 6.1: Collaboration Test
 
 **Goal**: Test if steered agents maintain alignment during collaboration
 
@@ -460,7 +457,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-#### Phase 3.2: Game-Theoretic Equilibrium [RESEARCH]
+#### Phase 6.2: Game-Theoretic Equilibrium [RESEARCH]
 
 **Goal**: Find Nash equilibrium for multi-agent alignment states
 

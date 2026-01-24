@@ -1,0 +1,8 @@
+{
+  "model_key": "Falcon_7B",
+  "lambda": 0.75,
+  "aqi_score": 17.80764476726367,
+  "chi_norm": 16.842186529016114,
+  "xb_norm": 18.773103005511228,
+  "n_samples": 1400
+}

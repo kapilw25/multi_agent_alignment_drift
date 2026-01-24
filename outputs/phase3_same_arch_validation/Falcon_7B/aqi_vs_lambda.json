@@ -1,0 +1,42 @@
+[
+  {
+    "model_key": "Falcon_7B",
+    "lambda": 0.0,
+    "aqi_score": 29.496001291916777,
+    "chi_norm": 41.885619045582594,
+    "xb_norm": 17.10638353825096,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Falcon_7B",
+    "lambda": 0.25,
+    "aqi_score": 13.873428468933037,
+    "chi_norm": 17.746856937866074,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Falcon_7B",
+    "lambda": 0.5,
+    "aqi_score": 16.470775240846102,
+    "chi_norm": 18.36441110686199,
+    "xb_norm": 14.577139374830217,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Falcon_7B",
+    "lambda": 0.75,
+    "aqi_score": 17.80764476726367,
+    "chi_norm": 16.842186529016114,
+    "xb_norm": 18.773103005511228,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Falcon_7B",
+    "lambda": 1.0,
+    "aqi_score": 15.289236378283706,
+    "chi_norm": 20.57847275656741,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  }
+]

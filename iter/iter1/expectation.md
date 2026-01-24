@@ -150,7 +150,7 @@ outputs/phase1_baseline_aqi/
 
 ---
 
-## Phase 2.1: Extract Steering Vectors
+## Phase 2: Extract Steering Vectors
 
 > **Script**: `src/m03_extract_steering_vectors.py`
 
@@ -246,7 +246,7 @@ Generating Steering Vector Plots
 
 ---
 
-### Phase 2.1 File Outputs
+### Phase 2 File Outputs
 
 ```
 outputs/phase2_steering_vectors/
@@ -310,7 +310,7 @@ Models loaded **sequentially** with batch processing optimized for A100:
 
 ## Checkpointing
 
-Both Phase 1 and Phase 2.1 support **resumable runs**:
+Phases 1, 2, and 3 support **resumable runs**:
 
 ```
 # If interrupted, re-run the same command:
@@ -342,7 +342,7 @@ Select option:
 | Heatmap generated | Shows per-axiom vulnerabilities |
 | Checkpointing works | Resume on crash |
 
-### Phase 2.1: Extract Steering Vectors
+### Phase 2: Extract Steering Vectors
 
 | Criterion | Expected |
 |-----------|----------|
@@ -410,7 +410,7 @@ From `aqi_comparison_plot.png`:
 - Mistral/Zephyr: CHI_norm ≈ 100 (excellent separation)
 - Falcon: CHI_norm ≈ 5 (poor separation)
 
-### Phase 2.1 Results (100 samples)
+### Phase 2 Results (100 samples)
 
 | Model | Layers | Dim | CosSim (Chosen) | CosSim (Rejected) |
 |-------|--------|-----|-----------------|-------------------|
@@ -480,9 +480,9 @@ Based on CosSim (lower = more steer-able):
 
 ---
 
-## Phase 2.2 Recommended Models
+## Phase 3 Recommended Models
 
-Based on Phase 1 (AQI) and Phase 2.1 (CosSim) findings:
+Based on Phase 1 (AQI) and Phase 2 (CosSim) findings:
 
 | Priority | Model | CosSim | AQI | Rationale |
 |----------|-------|--------|-----|-----------|
@@ -497,11 +497,11 @@ Based on Phase 1 (AQI) and Phase 2.1 (CosSim) findings:
 
 ---
 
-## Phase 2.2: Same-Architecture Steering Validation
+## Phase 3: Same-Architecture Steering Validation
 
 > **Script**: `src/m04_same_arch_validation.py`
 
-### Evaluation Modes (Phase 2.2)
+### Evaluation Modes (Phase 3)
 
 | Mode | Command | Samples/Cat | Total | Inferences* | Runtime |
 |------|---------|-------------|-------|-------------|---------|
@@ -513,7 +513,7 @@ Based on Phase 1 (AQI) and Phase 2.1 (CosSim) findings:
 
 ### Sanity Mode
 
-**Command**: `python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase2_2_sanity.log`
+**Command**: `python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log`
 
 **Expected Runtime**: ~1-2 hours (100 samples/category → 1,400 total, 3 models × 5 lambda values)
 
@@ -523,7 +523,7 @@ GPU: NVIDIA A100-SXM4-80GB
 Memory: 80.0 GB
 
 ============================================================
-Phase 2.2: Same-Architecture Steering Validation
+Phase 3: Same-Architecture Steering Validation
 ============================================================
 Mode: sanity | Samples: 100
 Dataset: hasnat79/litmus
@@ -532,7 +532,7 @@ Steering type: steering_vector.pth
 Steering layers: [-5, -4, -3, -2, -1]
 Preserve norm: True
 Models: ['Zephyr_7B', 'Falcon_7B', 'Mistral_7B']
-Output: outputs/phase2_same_arch_validation
+Output: outputs/phase3_same_arch_validation
 
 Loading dataset: hasnat79/litmus
 Loaded 1400 samples
@@ -577,8 +577,8 @@ AQI(lambda=0.75): 67.80
 AQI(lambda=1.0): 72.45
 
 Generating plots for Zephyr_7B...
-Saved: outputs/phase2_same_arch_validation/Zephyr_7B/aqi_vs_lambda.png
-Saved: outputs/phase2_same_arch_validation/Zephyr_7B/per_axiom_curves.png
+Saved: outputs/phase3_same_arch_validation/Zephyr_7B/aqi_vs_lambda.png
+Saved: outputs/phase3_same_arch_validation/Zephyr_7B/per_axiom_curves.png
 
 Results for Zephyr_7B:
   AQI(lambda=0): 55.00
@@ -589,7 +589,7 @@ Results for Zephyr_7B:
 [...repeat for Falcon_7B, Mistral_7B...]
 
 ================================================================================
-PHASE 2.2 RESULTS: Same-Architecture Steering Validation
+PHASE 3 RESULTS: Same-Architecture Steering Validation
 ================================================================================
 Model           AQI(0)     AQI(1)     Delta      Monotonic
 --------------------------------------------------------------------------------
@@ -597,24 +597,24 @@ Zephyr_7B       55.00      72.45      +17.45     YES
 Falcon_7B       5.00       28.30      +23.30     YES
 Mistral_7B      55.00      68.20      +13.20     YES
 --------------------------------------------------------------------------------
-Output: outputs/phase2_same_arch_validation
+Output: outputs/phase3_same_arch_validation
 ================================================================================
 
 Generating comparison plot...
-Saved: outputs/phase2_same_arch_validation/all_models_comparison.png
+Saved: outputs/phase3_same_arch_validation/all_models_comparison.png
 
-Summary: outputs/phase2_same_arch_validation/phase2_2_summary.json
+Summary: outputs/phase3_same_arch_validation/phase3_summary.json
 ```
 
 ### Full Mode
 
-**Command**: `python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase2_2_full.log`
+**Command**: `python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase3_full.log`
 
 **Expected Runtime**: ~5-8 hours (500 samples/category → 7,000 total)
 
 ### Max Mode
 
-**Command**: `python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase2_2_max.log`
+**Command**: `python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase3_max.log`
 
 **Expected Runtime**: ~15-20 hours (2,000 samples/category → 28,000 total)
 
@@ -622,29 +622,29 @@ Summary: outputs/phase2_same_arch_validation/phase2_2_summary.json
 
 ```bash
 # Specific models
-python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase2_2_custom.log
+python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase3_custom.log
 
 # Sparse lambda sweep
-python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase2_2_sparse.log
+python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase3_sparse.log
 
 # Custom steering layers
-python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase2_2_last5.log
+python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase3_last5.log
 
 # All layers (not recommended)
-python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase2_2_all.log
+python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
 
 # Max mode with specific samples override
-python -u src/m04_same_arch_validation.py --mode max --samples 1500 2>&1 | tee logs/phase2_2_custom_samples.log
+python -u src/m04_same_arch_validation.py --mode max --samples 1500 2>&1 | tee logs/phase3_custom_samples.log
 ```
 
 ---
 
-### Phase 2.2 File Outputs
+### Phase 3 File Outputs
 
 ```
-outputs/phase2_same_arch_validation/
-├── phase2_2_summary.json                  # Overall summary with all models
-├── phase2_2_validation_checkpoint.json    # Checkpoint for resume
+outputs/phase3_same_arch_validation/
+├── phase3_summary.json                    # Overall summary with all models
+├── phase3_validation_checkpoint.json      # Checkpoint for resume
 ├── all_models_comparison.png              # AQI vs Lambda curves (all models)
 ├── Zephyr_7B/
 │   ├── aqi_vs_lambda.json                 # Raw results per lambda
@@ -670,7 +670,7 @@ outputs/phase2_same_arch_validation/
 
 ---
 
-### Phase 2.2 Success Criteria
+### Phase 3 Success Criteria
 
 | Criterion | Expected |
 |-----------|----------|
@@ -701,7 +701,7 @@ h_steered = h_steered × (||h_base|| / ||h_steered||)
 
 ---
 
-### GPU Memory Usage (Phase 2.2)
+### GPU Memory Usage (Phase 3)
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
@@ -714,8 +714,8 @@ h_steered = h_steered × (||h_base|| / ||h_steered||)
 │ Mistral_7B   │ ~14 GB      │ 16         │ ~25 GB    │ Base only    │
 └──────────────┴─────────────┴────────────┴───────────┴──────────────┘
 
-* Phase 2.2 loads only BASE model (steering vector applied via hooks)
-* Lower VRAM than Phase 2.1 (which loads Base + Instruct simultaneously)
+* Phase 3 loads only BASE model (steering vector applied via hooks)
+* Lower VRAM than Phase 2 (which loads Base + Instruct simultaneously)
 ```
 
 ---
@@ -725,15 +725,15 @@ h_steered = h_steered × (||h_base|| / ||h_steered||)
 | After Phase | Next Action |
 |-------------|-------------|
 | Phase 1 | ✅ Complete - Baseline = Mistral_7B (AQI=55.0) |
-| Phase 2.1 | ✅ Complete - 6 steering vectors extracted |
-| **Phase 2.2** | **READY**: Same-Architecture Validation (`m04_same_arch_validation.py`) |
-| Phase 2.3 | Cross-Architecture Steering (after Phase 2.2 validates) |
-| Full Mode | Run AFTER Phase 2.2 validates the approach |
+| Phase 2 | ✅ Complete - 6 steering vectors extracted |
+| **Phase 3** | **IN PROGRESS**: Same-Architecture Validation (`m04_same_arch_validation.py`) |
+| Phase 4 | Cross-Architecture Steering (after Phase 3 validates) |
+| Full Mode | Run AFTER Phase 3 validates the approach |
 
 ### Recommended Path
 
 ```
-Phase 2.2 (Sanity) → If monotonic improvement → Full Mode → If validated → Max Mode (optional) → Phase 2.3 (Cross-Arch)
+Phase 3 (Sanity) → If monotonic improvement → Full Mode → If validated → Max Mode (optional) → Phase 4 (Cross-Arch)
 ```
 
 **Mode Selection Guide**:

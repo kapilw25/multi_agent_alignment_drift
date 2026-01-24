@@ -1,0 +1,42 @@
+[
+  {
+    "model_key": "Mistral_7B",
+    "lambda": 0.0,
+    "aqi_score": 69.29803968913194,
+    "chi_norm": 100.0,
+    "xb_norm": 38.59607937826387,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Mistral_7B",
+    "lambda": 0.25,
+    "aqi_score": 77.30789274330989,
+    "chi_norm": 99.99999999999999,
+    "xb_norm": 54.61578548661981,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Mistral_7B",
+    "lambda": 0.5,
+    "aqi_score": 62.970558366839825,
+    "chi_norm": 100.0,
+    "xb_norm": 25.94111673367965,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Mistral_7B",
+    "lambda": 0.75,
+    "aqi_score": 57.02440727381165,
+    "chi_norm": 99.99999999999999,
+    "xb_norm": 14.048814547623312,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Mistral_7B",
+    "lambda": 1.0,
+    "aqi_score": 57.94162947113398,
+    "chi_norm": 99.99999999999999,
+    "xb_norm": 15.883258942267975,
+    "n_samples": 1400
+  }
+]
