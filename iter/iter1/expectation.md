@@ -337,14 +337,42 @@ Select option:
 
 **Baseline Model**: Mistral_7B (AQI=55.0)
 
-| Model | AQI Score |
-|-------|-----------|
-| Mistral_7B | 55.0 |
-| Zephyr_7B | 55.0 |
-| Llama3_8B | 34.8 |
-| Gemma2_9B | 34.3 |
-| Qwen2_7B | 15.0 |
-| Falcon_7B | 5.0 |
+| Rank | Model | AQI | Role |
+|------|-------|-----|------|
+| 1 | Mistral_7B | 55.0 | **Baseline** (highest) |
+| 2 | Zephyr_7B | 55.0 | Tied baseline |
+| 3 | Llama3_8B | 34.8 | Needs steering |
+| 4 | Gemma2_9B | 34.3 | Needs steering |
+| 5 | Qwen2_7B | 15.0 | Needs steering |
+| 6 | Falcon_7B | 5.0 | Needs steering |
+
+#### Per-Axiom Vulnerability Analysis (Threat Model)
+
+From `aqi_axiom_heatmap.png` - identifies attack surfaces per axiom:
+
+| Axiom | Weakest Model | AQI Score | Attack Risk |
+|-------|---------------|-----------|-------------|
+| **Justice & Rights** | Qwen2_7B | 5.0 | Highest vulnerability |
+| **Empathy & Helpfulness** | Mistral_7B | 15.7 | High vulnerability |
+| **Information Seeking** | Falcon_7B | 17.5 | High vulnerability |
+| **Civility & Tolerance** | Zephyr_7B | 25.9 | Moderate vulnerability |
+
+**Threat Model Implication**: An attacker would:
+- Target Qwen2 for "Justice & Rights" exploits
+- Target Mistral for "Empathy" manipulation
+- Red cells in heatmap = exploitable weak points
+- Goal of MAHALS: Turn all red cells green (homophily)
+
+#### AQI Components
+
+**Formula**: `AQI = γ × CHI_norm + (1-γ) × (100 - XB_norm)` where γ=0.5
+
+- **CHI (Calinski-Harabasz Index)**: Higher = better cluster separation (safe vs unsafe)
+- **XB (Xie-Beni Index)**: Lower = tighter clusters
+
+From `aqi_comparison_plot.png`:
+- Mistral/Zephyr: CHI_norm ≈ 100 (excellent separation)
+- Falcon: CHI_norm ≈ 5 (poor separation)
 
 ### Phase 2.1 Results (100 samples)
 
@@ -416,19 +444,241 @@ Based on CosSim (lower = more steer-able):
 
 ---
 
+## Phase 2.2 Recommended Models
+
+Based on Phase 1 (AQI) and Phase 2.1 (CosSim) findings:
+
+| Priority | Model | CosSim | AQI | Rationale |
+|----------|-------|--------|-----|-----------|
+| 1 | **Zephyr_7B** | 0.77 | 55.0 | Highest steering potential + tied baseline |
+| 2 | **Falcon_7B** | 0.78 | 5.0 | High potential + lowest AQI (most room to improve) |
+| 3 | **Mistral_7B** | 0.83 | 55.0 | Baseline model - validate steering doesn't hurt |
+
+**Why these models:**
+- Low CosSim = large `h_instruct - h_base` gap = more steering signal
+- Zephyr/Falcon have the most extractable alignment direction
+- Qwen2 (CosSim=0.99) may not respond to steering (Base ≈ Instruct internally)
+
+---
+
+## Phase 2.2: Same-Architecture Steering Validation
+
+> **Script**: `src/m04_same_arch_validation.py`
+
+### Sanity Mode
+
+**Command**: `python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase2_2_sanity.log`
+
+**Expected Runtime**: ~1-2 hours (100 samples, 3 models × 5 lambda values)
+
+**Expected Console Output**:
+```
+GPU: NVIDIA A100-SXM4-80GB
+Memory: 80.0 GB
+
+============================================================
+Phase 2.2: Same-Architecture Steering Validation
+============================================================
+Mode: sanity | Samples: 100
+Dataset: hasnat79/litmus
+Lambda values: [0.0, 0.25, 0.5, 0.75, 1.0]
+Steering type: steering_vector.pth
+Steering layers: [-5, -4, -3, -2, -1]
+Preserve norm: True
+Models: ['Zephyr_7B', 'Falcon_7B', 'Mistral_7B']
+Output: outputs/phase2_same_arch_validation
+
+Loading dataset: hasnat79/litmus
+Loaded 700 samples
+
+============================================================
+Validating: Zephyr-7B-Beta
+Base Model: mistralai/Mistral-7B-v0.1
+Lambda values: [0.0, 0.25, 0.5, 0.75, 1.0]
+============================================================
+
+[1/3] Loading steering vector...
+  Loaded steering vector: torch.Size([32, 4096])
+
+[2/3] Loading base model...
+  Loading: mistralai/Mistral-7B-v0.1
+  Using Flash Attention 2
+GPU Memory: 45.2GB free / 80.0GB total
+
+[3/3] Evaluating AQI at 5 lambda values...
+
+--- Lambda = 0.00 ---
+Model layers: 32, Steering vector layers: 32
+Steering 5 layers: [27, 28, 29, 30, 31] via model.layers
+Preserve norm: True
+Registered 5 steering hooks on layers [27, 28, 29, 30, 31] (lambda=0.0, preserve_norm=True)
+AQI(lambda=0.0): 55.00
+
+--- Lambda = 0.25 ---
+...
+AQI(lambda=0.25): 58.50
+
+--- Lambda = 0.50 ---
+...
+AQI(lambda=0.5): 62.30
+
+--- Lambda = 0.75 ---
+...
+AQI(lambda=0.75): 67.80
+
+--- Lambda = 1.00 ---
+...
+AQI(lambda=1.0): 72.45
+
+Generating plots for Zephyr_7B...
+Saved: outputs/phase2_same_arch_validation/Zephyr_7B/aqi_vs_lambda.png
+Saved: outputs/phase2_same_arch_validation/Zephyr_7B/per_axiom_curves.png
+
+Results for Zephyr_7B:
+  AQI(lambda=0): 55.00
+  AQI(lambda=1): 72.45
+  Improvement: +17.45
+  Monotonic: YES
+
+[...repeat for Falcon_7B, Mistral_7B...]
+
+================================================================================
+PHASE 2.2 RESULTS: Same-Architecture Steering Validation
+================================================================================
+Model           AQI(0)     AQI(1)     Delta      Monotonic
+--------------------------------------------------------------------------------
+Zephyr_7B       55.00      72.45      +17.45     YES
+Falcon_7B       5.00       28.30      +23.30     YES
+Mistral_7B      55.00      68.20      +13.20     YES
+--------------------------------------------------------------------------------
+Output: outputs/phase2_same_arch_validation
+================================================================================
+
+Generating comparison plot...
+Saved: outputs/phase2_same_arch_validation/all_models_comparison.png
+
+Summary: outputs/phase2_same_arch_validation/phase2_2_summary.json
+```
+
+### Full Mode
+
+**Command**: `python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase2_2_full.log`
+
+**Expected Runtime**: ~3-4 hours (200 samples)
+
+### Custom Configurations
+
+```bash
+# Specific models
+python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase2_2_custom.log
+
+# Sparse lambda sweep
+python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase2_2_sparse.log
+
+# Custom steering layers
+python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase2_2_last5.log
+
+# All layers (not recommended)
+python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase2_2_all.log
+```
+
+---
+
+### Phase 2.2 File Outputs
+
+```
+outputs/phase2_same_arch_validation/
+├── phase2_2_summary.json                  # Overall summary with all models
+├── phase2_2_validation_checkpoint.json    # Checkpoint for resume
+├── all_models_comparison.png              # AQI vs Lambda curves (all models)
+├── Zephyr_7B/
+│   ├── aqi_vs_lambda.json                 # Raw results per lambda
+│   ├── aqi_vs_lambda.png                  # AQI vs Lambda curve
+│   ├── per_axiom_curves.png               # Per-axiom AQI breakdown
+│   ├── lambda_0.00/
+│   │   ├── result.json                    # AQI, CHI_norm, XB_norm
+│   │   ├── embeddings_Zephyr_7B_lambda0.0.pkl
+│   │   └── *_metrics_summary.csv
+│   ├── lambda_0.25/
+│   │   └── ...
+│   ├── lambda_0.50/
+│   │   └── ...
+│   ├── lambda_0.75/
+│   │   └── ...
+│   └── lambda_1.00/
+│       └── ...
+├── Falcon_7B/
+│   └── ...
+└── Mistral_7B/
+    └── ...
+```
+
+---
+
+### Phase 2.2 Success Criteria
+
+| Criterion | Expected |
+|-----------|----------|
+| All 3 recommended models validated | Zephyr_7B, Falcon_7B, Mistral_7B |
+| 5 lambda values evaluated per model | 0.0, 0.25, 0.5, 0.75, 1.0 |
+| AQI improvement at lambda=1 vs lambda=0 | Positive delta for all models |
+| Monotonic AQI increase | AQI(λ=0) ≤ AQI(λ=0.25) ≤ ... ≤ AQI(λ=1) |
+| D_STEER features working | preserve_norm=True, last 5 layers steered |
+| Plots generated | aqi_vs_lambda.png, per_axiom_curves.png |
+
+---
+
+### Key D_STEER Features (m04)
+
+| Feature | Default | Rationale |
+|---------|---------|-----------|
+| `steering_layers` | `[-5,-4,-3,-2,-1]` | Last 5 layers have highest steering signal (from steering_norms_comparison.png) |
+| `preserve_norm` | `True` | Prevents hidden state explosion; steered_norm matches original_norm |
+| `lambda_values` | `[0.0, 0.25, 0.5, 0.75, 1.0]` | Interpolation from unsteered to full steering |
+
+**Steering Formula**:
+```
+h_steered[l] = h_base[l] + λ × v[l]
+
+# With preserve_norm=True:
+h_steered = h_steered × (||h_base|| / ||h_steered||)
+```
+
+---
+
+### GPU Memory Usage (Phase 2.2)
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                       A100 80GB VRAM                                │
+├────────────────────────────────────────────────────────────────────┤
+│ Model        │ Size (bf16) │ Batch Size │ Peak VRAM │ Note         │
+├──────────────┼─────────────┼────────────┼───────────┼──────────────┤
+│ Zephyr_7B    │ ~14 GB      │ 16         │ ~25 GB    │ Base only    │
+│ Falcon_7B    │ ~14 GB      │ 16         │ ~25 GB    │ Base only    │
+│ Mistral_7B   │ ~14 GB      │ 16         │ ~25 GB    │ Base only    │
+└──────────────┴─────────────┴────────────┴───────────┴──────────────┘
+
+* Phase 2.2 loads only BASE model (steering vector applied via hooks)
+* Lower VRAM than Phase 2.1 (which loads Base + Instruct simultaneously)
+```
+
+---
+
 ## Next Steps
 
 | After Phase | Next Action |
 |-------------|-------------|
 | Phase 1 | ✅ Complete - Baseline = Mistral_7B (AQI=55.0) |
 | Phase 2.1 | ✅ Complete - 6 steering vectors extracted |
-| **Phase 2.2** | **NEXT**: Same-Architecture Validation (test if steering works) |
+| **Phase 2.2** | **READY**: Same-Architecture Validation (`m04_same_arch_validation.py`) |
+| Phase 2.3 | Cross-Architecture Steering (after Phase 2.2 validates) |
 | Full Mode | Run AFTER Phase 2.2 validates the approach |
 
 ### Recommended Path
 
 ```
-Phase 2.2 (Sanity) → If works → Full Mode (Phase 1 + 2.1) → Phase 2.3 (Cross-Arch)
+Phase 2.2 (Sanity) → If monotonic improvement → Full Mode (Phase 1 + 2.1 + 2.2) → Phase 2.3 (Cross-Arch)
 ```
 
-**Rationale**: Validate approach with sanity mode (100 samples) before investing compute in full mode (1000 samples). If steering doesn't work, full mode extraction is wasted effort.
+**Rationale**: Validate approach with sanity mode (100 samples) before investing compute in full mode. If steering doesn't produce monotonic AQI improvement, investigate before proceeding.

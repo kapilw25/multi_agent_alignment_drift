@@ -149,6 +149,20 @@ python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_ful
 - Baseline model identification (highest AQI)
 - Bar plots comparing all models
 
+#### Phase 1 Results Summary
+
+| Model | AQI | Status |
+|-------|-----|--------|
+| **Mistral_7B** | 55.0 | **Baseline** |
+| Zephyr_7B | 55.0 | Tied |
+| Llama3_8B | 34.8 | Needs steering |
+| Gemma2_9B | 34.3 | Needs steering |
+| Qwen2_7B | 15.0 | Needs steering |
+| Falcon_7B | 5.0 | Needs steering |
+
+> **Threat Model**: Per-axiom vulnerabilities identified in `aqi_axiom_heatmap.png`.
+> See [expectation.md](./expectation.md#per-axiom-vulnerability-analysis-threat-model) for detailed analysis.
+
 ---
 
 ### Phase 2: Latent Alignment via Steering [READY]
@@ -265,6 +279,21 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 - `steering_norms_comparison.png` - Norm curves overlay
 - `model_dimensions.png` - Architecture comparison
 
+#### Phase 2.1 Results Summary
+
+| Model | Layers | Dim | CosSim | Steering Potential |
+|-------|--------|-----|--------|-------------------|
+| **Zephyr_7B** | 32 | 4096 | 0.77 | **Highest** |
+| **Falcon_7B** | 32 | 4544 | 0.78 | **High** |
+| Mistral_7B | 32 | 4096 | 0.83 | Good (baseline) |
+| Gemma2_9B | 42 | 3584 | 0.92 | Moderate |
+| Llama3_8B | 32 | 4096 | 0.95 | Low |
+| Qwen2_7B | 28 | 3584 | 0.99 | **Minimal** |
+
+**Key Finding**: Lower CosSim = larger `h_instruct - h_base` gap = more extractable alignment signal.
+
+> See [expectation.md](./expectation.md#plot-analysis) for detailed plot analysis.
+
 ---
 
 #### Phase 2.2: Same-Architecture Validation [TODO]
@@ -325,10 +354,18 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 **Expected**: Monotonic AQI increase with λ
 
-**Best Candidates** (from Phase 2.1 CosSim analysis):
-- Zephyr_7B (CosSim=0.77) - highest steering potential
-- Falcon_7B (CosSim=0.78) - high steering potential
-- Mistral_7B (CosSim=0.83) - baseline model, good reference
+**Recommended Models for Phase 2.2** (combining Phase 1 AQI + Phase 2.1 CosSim):
+
+| Priority | Model | CosSim | AQI | Why |
+|----------|-------|--------|-----|-----|
+| 1 | **Zephyr_7B** | 0.77 | 55.0 | Highest steering potential + tied baseline |
+| 2 | **Falcon_7B** | 0.78 | 5.0 | High potential + most room to improve |
+| 3 | **Mistral_7B** | 0.83 | 55.0 | Baseline - validate steering doesn't degrade |
+
+**Rationale**:
+- Low CosSim = large alignment signal extractable
+- Falcon has lowest AQI (5.0) so steering improvement will be most visible
+- Qwen2 (CosSim=0.99) unlikely to respond to steering
 
 ---
 
