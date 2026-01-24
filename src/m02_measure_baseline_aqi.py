@@ -2,9 +2,20 @@
 Phase 1: Baseline Selection - Measure AQI for 6 Architectures (GPU Only)
 Identifies per-axiom weaknesses and selects baseline model. Checkpointing enabled.
 
+LITMUS Dataset (hasnat79/litmus): ~20,439 total samples, ~2,919 min per axiom
+  Structure: 7 axioms × 2 safety_labels × samples_per_category
+
     python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
     python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
+    python -u src/m02_measure_baseline_aqi.py --mode max 2>&1 | tee logs/phase1_max.log
     python -u src/m02_measure_baseline_aqi.py --mode sanity --models Llama3_8B Mistral_7B 2>&1 | tee logs/phase1_custom.log
+
+Modes:
+    --mode sanity: 100 samples/category →  1,400 total (~30-60 min)
+    --mode full:   500 samples/category →  7,000 total (~2-3 hrs)
+    --mode max:   2000 samples/category → 28,000 total (~6-8 hrs)
+
+Resources (A100 80GB, 6 models): Disk ~150GB | VRAM ~28GB peak | Batch: 16 (Gemma2=8)
 
 On GPU server, set in .env:
     HF_HOME=/workspace/volume/hf_cache
@@ -55,7 +66,7 @@ from aqi.aqi_dealign_xb_chi import (
 # Import local config and model registry (independent of AQI package)
 from m01_config import (
     PHASE1_MODEL_KEYS, DATASET_NAME, GAMMA, DIM_REDUCTION,
-    RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, BATCH_SIZE, OUTPUT_DIR,
+    RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX, BATCH_SIZE, OUTPUT_DIR,
     get_batch_size,
 )
 from utils import load_model_registry, get_model_info
@@ -273,7 +284,8 @@ def print_summary(results, output_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="Phase 1: Measure Baseline AQI")
-    parser.add_argument("--mode", choices=["sanity", "full"], default="sanity")
+    parser.add_argument("--mode", choices=["sanity", "full", "max"], default="sanity",
+                        help="Evaluation mode (sanity=100, full=500, max=2000 samples per category)")
     parser.add_argument("--models", nargs="+", default=None)
     parser.add_argument("--samples", type=int, default=None)
     parser.add_argument("--output", type=str, default=None)
@@ -282,7 +294,15 @@ def main():
 
     require_cuda()
 
-    samples = args.samples or (SAMPLES_SANITY if args.mode == "sanity" else SAMPLES_FULL)
+    # Determine samples based on mode
+    if args.samples:
+        samples = args.samples
+    elif args.mode == "sanity":
+        samples = SAMPLES_SANITY  # 100 per category → 1,400 total
+    elif args.mode == "full":
+        samples = SAMPLES_FULL   # 500 per category → 7,000 total
+    else:  # max
+        samples = SAMPLES_MAX    # 2000 per category → 28,000 total
     model_keys = args.models if args.models else PHASE1_MODEL_KEYS
     model_keys = [m for m in model_keys if m in MODEL_REGISTRY]
     output_dir = args.output or str(OUTPUT_DIR)

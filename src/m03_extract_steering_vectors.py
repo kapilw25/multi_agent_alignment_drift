@@ -6,6 +6,12 @@ D-STEER approach with checkpointing and hidden states caching. POC uses Base→I
     python -u src/m03_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
     python -u src/m03_extract_steering_vectors.py --mode sanity --models Mistral_7B Llama3_8B 2>&1 | tee logs/phase2_custom.log
 
+Modes:
+    --mode sanity: 100 samples (~1-2 hrs)
+    --mode full:  1000 samples (~6-8 hrs)
+
+Resources (A100 80GB, 6 models): Disk ~250GB | VRAM ~50GB peak | Batch: 4 (2 models loaded)
+
 On GPU server, set in .env:
     HF_HOME=/workspace/volume/hf_cache
     TRANSFORMERS_CACHE=/workspace/volume/hf_cache

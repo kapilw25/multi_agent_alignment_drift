@@ -6,6 +6,28 @@
 
 ---
 
+## LITMUS Dataset Info
+
+> **Source**: `hasnat79/litmus` (from `src/AQI/05_evaluation/eval_utils/dataset_info.py`)
+
+| Metric | Value |
+|--------|-------|
+| **Total samples** | ~20,439 |
+| **Min per axiom** | ~2,919 |
+| **Axioms** | 7 |
+| **Safety labels** | 2 (safe/unsafe) |
+| **Structure** | 7 axioms × 2 safety_labels × samples_per_category |
+
+### Evaluation Modes
+
+| Mode | Samples/Category | Total Samples | Formula |
+|------|------------------|---------------|---------|
+| `--mode sanity` | 100 | 1,400 | 7 × 2 × 100 |
+| `--mode full` | 500 | 7,000 | 7 × 2 × 500 |
+| `--mode max` | 2,000 | 28,000 | 7 × 2 × 2,000 |
+
+---
+
 ## Phase 1: Baseline Selection
 
 > **Scripts**: `src/m01_config.py`, `src/m02_measure_baseline_aqi.py`
@@ -28,11 +50,19 @@ Output: /path/to/outputs/phase1_baseline_aqi
 
 ### m02_measure_baseline_aqi.py
 
+### Evaluation Modes (Phase 1)
+
+| Mode | Command | Samples/Cat | Total | Runtime |
+|------|---------|-------------|-------|---------|
+| **sanity** | `--mode sanity` | 100 | 1,400 | ~30-60 min |
+| **full** | `--mode full` | 500 | 7,000 | ~2-3 hrs |
+| **max** | `--mode max` | 2,000 | 28,000 | ~6-8 hrs |
+
 #### Sanity Mode (Quick Test)
 
 **Command**: `python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log`
 
-**Expected Runtime**: ~30-60 minutes (100 samples per category)
+**Expected Runtime**: ~30-60 minutes (100 samples per category → 1,400 total)
 
 **Expected Console Output**:
 ```
@@ -47,7 +77,7 @@ Models: ['Llama3_8B', 'Mistral_7B', 'Qwen2_7B', 'Gemma2_9B', 'Falcon_7B', 'Zephy
 Output: outputs/phase1_baseline_aqi
 
 Loading dataset: hasnat79/litmus
-Loaded 700 samples
+Loaded 1400 samples
 
 ============================================================
 Evaluating: Llama-3.1-8B
@@ -84,7 +114,13 @@ Generating AQI Plots
 
 **Command**: `python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log`
 
-**Expected Runtime**: ~2-3 hours (200 samples per category)
+**Expected Runtime**: ~2-3 hours (500 samples per category → 7,000 total)
+
+#### Max Mode
+
+**Command**: `python -u src/m02_measure_baseline_aqi.py --mode max 2>&1 | tee logs/phase1_max.log`
+
+**Expected Runtime**: ~6-8 hours (2,000 samples per category → 28,000 total)
 
 ---
 
@@ -465,11 +501,21 @@ Based on Phase 1 (AQI) and Phase 2.1 (CosSim) findings:
 
 > **Script**: `src/m04_same_arch_validation.py`
 
+### Evaluation Modes (Phase 2.2)
+
+| Mode | Command | Samples/Cat | Total | Inferences* | Runtime |
+|------|---------|-------------|-------|-------------|---------|
+| **sanity** | `--mode sanity` | 100 | 1,400 | 21,000 | ~1-2 hrs |
+| **full** | `--mode full` | 500 | 7,000 | 105,000 | ~5-8 hrs |
+| **max** | `--mode max` | 2,000 | 28,000 | 420,000 | ~15-20 hrs |
+
+*Inferences = Total × 5 lambda values × 3 models
+
 ### Sanity Mode
 
 **Command**: `python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase2_2_sanity.log`
 
-**Expected Runtime**: ~1-2 hours (100 samples, 3 models × 5 lambda values)
+**Expected Runtime**: ~1-2 hours (100 samples/category → 1,400 total, 3 models × 5 lambda values)
 
 **Expected Console Output**:
 ```
@@ -489,7 +535,7 @@ Models: ['Zephyr_7B', 'Falcon_7B', 'Mistral_7B']
 Output: outputs/phase2_same_arch_validation
 
 Loading dataset: hasnat79/litmus
-Loaded 700 samples
+Loaded 1400 samples
 
 ============================================================
 Validating: Zephyr-7B-Beta
@@ -564,7 +610,13 @@ Summary: outputs/phase2_same_arch_validation/phase2_2_summary.json
 
 **Command**: `python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase2_2_full.log`
 
-**Expected Runtime**: ~3-4 hours (200 samples)
+**Expected Runtime**: ~5-8 hours (500 samples/category → 7,000 total)
+
+### Max Mode
+
+**Command**: `python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase2_2_max.log`
+
+**Expected Runtime**: ~15-20 hours (2,000 samples/category → 28,000 total)
 
 ### Custom Configurations
 
@@ -580,6 +632,9 @@ python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 
 
 # All layers (not recommended)
 python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase2_2_all.log
+
+# Max mode with specific samples override
+python -u src/m04_same_arch_validation.py --mode max --samples 1500 2>&1 | tee logs/phase2_2_custom_samples.log
 ```
 
 ---
@@ -678,7 +733,15 @@ h_steered = h_steered × (||h_base|| / ||h_steered||)
 ### Recommended Path
 
 ```
-Phase 2.2 (Sanity) → If monotonic improvement → Full Mode (Phase 1 + 2.1 + 2.2) → Phase 2.3 (Cross-Arch)
+Phase 2.2 (Sanity) → If monotonic improvement → Full Mode → If validated → Max Mode (optional) → Phase 2.3 (Cross-Arch)
 ```
 
-**Rationale**: Validate approach with sanity mode (100 samples) before investing compute in full mode. If steering doesn't produce monotonic AQI improvement, investigate before proceeding.
+**Mode Selection Guide**:
+
+| Use Case | Mode | Total Samples | Runtime |
+|----------|------|---------------|---------|
+| Quick validation / debugging | `--mode sanity` | 1,400 | ~1-2 hrs |
+| Standard evaluation | `--mode full` | 7,000 | ~5-8 hrs |
+| Publication-ready results | `--mode max` | 28,000 | ~15-20 hrs |
+
+**Rationale**: Validate approach with sanity mode (1,400 samples) before investing compute in full mode (7,000 samples). Use max mode only for final publication results.

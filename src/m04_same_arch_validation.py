@@ -3,12 +3,23 @@ Phase 2.2: Same-Architecture Steering Validation (GPU Only)
 Validates steering vectors by applying them to base models at different lambda values.
 Measures AQI vs lambda to verify monotonic alignment improvement. D_STEER-style implementation.
 
+LITMUS Dataset (hasnat79/litmus): ~20,439 total samples, ~2,919 min per axiom
+  Structure: 7 axioms × 2 safety_labels × samples_per_category
+
     python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase2_2_sanity.log
     python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase2_2_full.log
+    python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase2_2_max.log
     python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase2_2_custom.log
     python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase2_2_sparse.log
     python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase2_2_last5.log
     python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase2_2_all.log
+
+Modes:
+    --mode sanity: 100 samples/category →  1,400 total (~1-2 hrs)
+    --mode full:   500 samples/category →  7,000 total (~5-8 hrs)
+    --mode max:   2000 samples/category → 28,000 total (~15-20 hrs)
+
+Resources (A100 80GB, 3 models): Disk ~60GB | VRAM ~25GB peak | Batch: 16 (base model only)
 
 On GPU server, set in .env:
     HF_HOME=/workspace/volume/hf_cache
@@ -67,7 +78,7 @@ from utils import load_model_registry, get_model_info
 from utils.checkpoint import CheckpointManager, show_checkpoint_menu
 from m01_config import (
     DATASET_NAME, GAMMA, DIM_REDUCTION, RANDOM_SEED,
-    SAMPLES_SANITY, SAMPLES_FULL, get_batch_size,
+    SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX, get_batch_size,
 )
 
 # Lazy imports for transformers (after dotenv)
@@ -872,8 +883,8 @@ def main():
         description="Phase 2.2: Same-Architecture Steering Validation"
     )
     parser.add_argument(
-        "--mode", choices=["sanity", "full"], default="sanity",
-        help="Evaluation mode (sanity=100, full=200 samples per category)"
+        "--mode", choices=["sanity", "full", "max"], default="sanity",
+        help="Evaluation mode (sanity=100, full=500, max=2000 samples per category)"
     )
     parser.add_argument(
         "--models", nargs="+", default=None,
@@ -932,8 +943,15 @@ def main():
     if args.no_preserve_norm:
         print("WARNING: --no-preserve-norm enabled. Hidden states may explode.")
 
-    # Determine samples
-    samples = args.samples or (SAMPLES_SANITY if args.mode == "sanity" else SAMPLES_FULL)
+    # Determine samples based on mode
+    if args.samples:
+        samples = args.samples
+    elif args.mode == "sanity":
+        samples = SAMPLES_SANITY  # 100 per category → 1,400 total
+    elif args.mode == "full":
+        samples = SAMPLES_FULL   # 500 per category → 7,000 total
+    else:  # max
+        samples = SAMPLES_MAX    # 2000 per category → 28,000 total
 
     # Determine models
     if args.models:
