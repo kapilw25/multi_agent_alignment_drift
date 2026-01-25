@@ -52,6 +52,14 @@
       "hidden_dim": 4096,
       "num_layers": 32,
       "note": "D-STEER reference SFT→DPO pair (genuine alignment direction)"
+    },
+    "Llama31_PKU_Custom": {
+      "base": "anonymousML123/llama3-8b-pku-SFT-NoInstruct-Baseline-NoInstruct",
+      "instruct": "anonymousML123/llama3-8b-pku-DPO-NoInstruct-SFT-NoInstruct",
+      "display_name": "Llama-3.1-PKU-Custom",
+      "hidden_dim": 4096,
+      "num_layers": 32,
+      "note": "Custom SFT→DPO pair trained on PKU-SafeRLHF (12K samples, LoRA)"
     }
   }
 }
