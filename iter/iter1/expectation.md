@@ -30,7 +30,7 @@
 
 ## Phase 1: Baseline Selection
 
-> **Scripts**: `src/m01_config.py`, `src/m02_measure_baseline_aqi.py`
+> **Scripts**: `src/m01_config.py`, `src/p01_measure_baseline_aqi.py`
 
 ### m01_config.py
 
@@ -48,7 +48,7 @@ Output: /path/to/outputs/phase1_baseline_aqi
 
 ---
 
-### m02_measure_baseline_aqi.py
+### p01_measure_baseline_aqi.py
 
 ### Evaluation Modes (Phase 1)
 
@@ -60,7 +60,7 @@ Output: /path/to/outputs/phase1_baseline_aqi
 
 #### Sanity Mode (Quick Test)
 
-**Command**: `python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log`
+**Command**: `python -u src/p01_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log`
 
 **Expected Runtime**: ~30-60 minutes (100 samples per category → 1,400 total)
 
@@ -112,13 +112,13 @@ Generating AQI Plots
 
 #### Full Mode
 
-**Command**: `python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log`
+**Command**: `python -u src/p01_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log`
 
 **Expected Runtime**: ~2-3 hours (500 samples per category → 7,000 total)
 
 #### Max Mode
 
-**Command**: `python -u src/m02_measure_baseline_aqi.py --mode max 2>&1 | tee logs/phase1_max.log`
+**Command**: `python -u src/p01_measure_baseline_aqi.py --mode max 2>&1 | tee logs/phase1_max.log`
 
 **Expected Runtime**: ~6-8 hours (2,000 samples per category → 28,000 total)
 
@@ -152,11 +152,11 @@ outputs/phase1_baseline_aqi/
 
 ## Phase 2: Extract Steering Vectors
 
-> **Script**: `src/m03_extract_steering_vectors.py`
+> **Script**: `src/p02_extract_steering_vectors.py`
 
 ### Sanity Mode
 
-**Command**: `python -u src/m03_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log`
+**Command**: `python -u src/p02_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log`
 
 **Expected Runtime**: ~1-2 hours (100 samples, 6 models × 2 model pairs each)
 
@@ -240,7 +240,7 @@ Generating Steering Vector Plots
 
 ### Full Mode
 
-**Command**: `python -u src/m03_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log`
+**Command**: `python -u src/p02_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log`
 
 **Expected Runtime**: ~6-8 hours (1000 samples)
 
@@ -314,7 +314,7 @@ Phases 1, 2, and 3 support **resumable runs**:
 
 ```
 # If interrupted, re-run the same command:
-python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
+python -u src/p01_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
 
 # You'll see:
 ============================================================
@@ -499,7 +499,7 @@ Based on Phase 1 (AQI) and Phase 2 (CosSim) findings:
 
 ## Phase 3: Same-Architecture Steering Validation
 
-> **Script**: `src/m04_same_arch_validation.py`
+> **Script**: `src/p03_same_arch_validation.py`
 
 ### Evaluation Modes (Phase 3)
 
@@ -513,7 +513,7 @@ Based on Phase 1 (AQI) and Phase 2 (CosSim) findings:
 
 ### Sanity Mode
 
-**Command**: `python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log`
+**Command**: `python -u src/p03_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log`
 
 **Expected Runtime**: ~1-2 hours (100 samples/category → 1,400 total, 3 models × 5 lambda values)
 
@@ -608,13 +608,13 @@ Summary: outputs/phase3_same_arch_validation/phase3_summary.json
 
 ### Full Mode
 
-**Command**: `python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase3_full.log`
+**Command**: `python -u src/p03_same_arch_validation.py --mode full 2>&1 | tee logs/phase3_full.log`
 
 **Expected Runtime**: ~5-8 hours (500 samples/category → 7,000 total)
 
 ### Max Mode
 
-**Command**: `python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase3_max.log`
+**Command**: `python -u src/p03_same_arch_validation.py --mode max 2>&1 | tee logs/phase3_max.log`
 
 **Expected Runtime**: ~15-20 hours (2,000 samples/category → 28,000 total)
 
@@ -622,19 +622,19 @@ Summary: outputs/phase3_same_arch_validation/phase3_summary.json
 
 ```bash
 # Specific models
-python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase3_custom.log
+python -u src/p03_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase3_custom.log
 
 # Sparse lambda sweep
-python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase3_sparse.log
+python -u src/p03_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase3_sparse.log
 
 # Custom steering layers
-python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase3_last5.log
+python -u src/p03_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase3_last5.log
 
 # All layers (not recommended)
-python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
+python -u src/p03_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
 
 # Max mode with specific samples override
-python -u src/m04_same_arch_validation.py --mode max --samples 1500 2>&1 | tee logs/phase3_custom_samples.log
+python -u src/p03_same_arch_validation.py --mode max --samples 1500 2>&1 | tee logs/phase3_custom_samples.log
 ```
 
 ---
@@ -726,7 +726,7 @@ h_steered = h_steered × (||h_base|| / ||h_steered||)
 |-------------|-------------|
 | Phase 1 | ✅ Complete - Baseline = Mistral_7B (AQI=55.0) |
 | Phase 2 | ✅ Complete - 6 steering vectors extracted |
-| **Phase 3** | **IN PROGRESS**: Same-Architecture Validation (`m04_same_arch_validation.py`) |
+| **Phase 3** | **IN PROGRESS**: Same-Architecture Validation (`p03_same_arch_validation.py`) |
 | Phase 4 | Cross-Architecture Steering (after Phase 3 validates) |
 | Full Mode | Run AFTER Phase 3 validates the approach |
 

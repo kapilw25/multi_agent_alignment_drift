@@ -5,10 +5,10 @@ Identifies per-axiom weaknesses and selects baseline model. Checkpointing enable
 LITMUS Dataset (hasnat79/litmus): ~20,439 total samples, ~2,919 min per axiom
   Structure: 7 axioms × 2 safety_labels × samples_per_category
 
-    python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
-    python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
-    python -u src/m02_measure_baseline_aqi.py --mode max 2>&1 | tee logs/phase1_max.log
-    python -u src/m02_measure_baseline_aqi.py --mode sanity --models Llama3_8B Mistral_7B 2>&1 | tee logs/phase1_custom.log
+    python -u src/p01_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
+    python -u src/p01_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
+    python -u src/p01_measure_baseline_aqi.py --mode max 2>&1 | tee logs/phase1_max.log
+    python -u src/p01_measure_baseline_aqi.py --mode sanity --models Llama3_8B Mistral_7B 2>&1 | tee logs/phase1_custom.log
 
 Modes:
     --mode sanity: 100 samples/category →  1,400 total (~30-60 min)

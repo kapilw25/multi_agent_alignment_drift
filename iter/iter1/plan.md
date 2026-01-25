@@ -19,9 +19,9 @@
 
 | Phase | Name | Effort | Purpose | Script |
 |:-----:|:-----|:------:|:--------|:-------|
-| **1** | **Baseline Selection** | EASY | Identify per-axiom weaknesses, select baseline | `m02_measure_baseline_aqi.py` |
-| **2** | **Extract Steering Vectors** | MEDIUM | Get v_llama, v_mistral, etc. | `m03_extract_steering_vectors.py` |
-| **3** | **Same-Architecture Validation** | MEDIUM | Prove steering works (AQI vs λ) | `m04_same_arch_validation.py` |
+| **1** | **Baseline Selection** | EASY | Identify per-axiom weaknesses, select baseline | `p01_measure_baseline_aqi.py` |
+| **2** | **Extract Steering Vectors** | MEDIUM | Get v_llama, v_mistral, etc. | `p02_extract_steering_vectors.py` |
+| **3** | **Same-Architecture Validation** | MEDIUM | Prove steering works (AQI vs λ) | `p03_same_arch_validation.py` |
 | **4** | **Cross-Architecture Steering** | HARD | Achieve homophily across architectures | `m05_*.py` (TBD) |
 | **5** | **Alignment Recovery** (OPTIONAL) | HIGH | Recover alignment after intentional degradation | - |
 | **6** | **Multi-Agent Interaction** | | | |
@@ -130,7 +130,7 @@ Agent A (AQI=75) + Agent B (AQI=68) → After collaboration → Both degraded
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Script**: `src/m02_measure_baseline_aqi.py`
+**Script**: `src/p01_measure_baseline_aqi.py`
 
 **Configuration** (`src/m01_config.py`):
 - Dataset: `hasnat79/litmus`
@@ -139,8 +139,8 @@ Agent A (AQI=75) + Agent B (AQI=68) → After collaboration → Both degraded
 
 **Commands**:
 ```bash
-python -u src/m02_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
-python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
+python -u src/p01_measure_baseline_aqi.py --mode sanity 2>&1 | tee logs/phase1_sanity.log
+python -u src/p01_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_full.log
 ```
 
 **Output**: `outputs/phase1_baseline_aqi/`
@@ -218,7 +218,7 @@ python -u src/m02_measure_baseline_aqi.py --mode full 2>&1 | tee logs/phase1_ful
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Script**: `src/m03_extract_steering_vectors.py`
+**Script**: `src/p02_extract_steering_vectors.py`
 
 **Approach**: D-STEER (no training required)
 ```
@@ -254,9 +254,9 @@ MODEL_BATCH_SIZES = {
 
 **Commands**:
 ```bash
-python -u src/m03_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log
-python -u src/m03_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
-python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # skip SVD
+python -u src/p02_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log
+python -u src/p02_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
+python -u src/p02_extract_steering_vectors.py --no-svd --models Mistral_7B  # skip SVD
 ```
 
 **Output**: `outputs/phase2_steering_vectors/`
@@ -297,7 +297,7 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 **Goal**: Verify steering works within same architecture
 
-**Script**: `src/m04_same_arch_validation.py`
+**Script**: `src/p03_same_arch_validation.py`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -468,8 +468,8 @@ python -u src/m03_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 | Asset | Location | Purpose |
 |-------|----------|---------|
 | Config | `src/m01_config.py` | Phase 1 settings |
-| AQI Evaluation | `src/m02_measure_baseline_aqi.py` | Measure alignment quality |
-| Steering Extraction | `src/m03_extract_steering_vectors.py` | Extract steering vectors |
+| AQI Evaluation | `src/p01_measure_baseline_aqi.py` | Measure alignment quality |
+| Steering Extraction | `src/p02_extract_steering_vectors.py` | Extract steering vectors |
 | Model Registry | `src/utils/model_registry.json` | Model pairs config |
 | AQI Package | `src/AQI/` | Shared AQI utilities |
 

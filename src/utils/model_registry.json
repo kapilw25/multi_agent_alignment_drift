@@ -44,6 +44,14 @@
       "display_name": "Falcon-7B",
       "hidden_dim": 4544,
       "num_layers": 32
+    },
+    "Llama31_Tulu": {
+      "base": "allenai/Llama-3.1-Tulu-3-8B-SFT",
+      "instruct": "allenai/Llama-3.1-Tulu-3-8B-DPO",
+      "display_name": "Llama-3.1-Tulu-8B",
+      "hidden_dim": 4096,
+      "num_layers": 32,
+      "note": "D-STEER reference SFT→DPO pair (genuine alignment direction)"
     }
   }
 }

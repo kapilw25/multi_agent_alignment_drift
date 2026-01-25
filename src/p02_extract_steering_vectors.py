@@ -2,9 +2,9 @@
 Phase 2.1: Extract Steering Vectors for Each Architecture (GPU Only)
 D-STEER approach with checkpointing and hidden states caching. POC uses Base→Instruct pairs.
 
-    python -u src/m03_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log
-    python -u src/m03_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
-    python -u src/m03_extract_steering_vectors.py --mode sanity --models Mistral_7B Llama3_8B 2>&1 | tee logs/phase2_custom.log
+    python -u src/p02_extract_steering_vectors.py --mode sanity 2>&1 | tee logs/phase2_sanity.log
+    python -u src/p02_extract_steering_vectors.py --mode full 2>&1 | tee logs/phase2_full.log
+    python -u src/p02_extract_steering_vectors.py --mode sanity --models Mistral_7B Llama3_8B 2>&1 | tee logs/phase2_custom.log
 
 Modes:
     --mode sanity: 100 samples (~1-2 hrs)

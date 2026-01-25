@@ -6,13 +6,13 @@ Measures AQI vs lambda to verify monotonic alignment improvement. D_STEER-style 
 LITMUS Dataset (hasnat79/litmus): ~20,439 total samples, ~2,919 min per axiom
   Structure: 7 axioms × 2 safety_labels × samples_per_category
 
-    python -u src/m04_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log
-    python -u src/m04_same_arch_validation.py --mode full 2>&1 | tee logs/phase3_full.log
-    python -u src/m04_same_arch_validation.py --mode max 2>&1 | tee logs/phase3_max.log
-    python -u src/m04_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase3_custom.log
-    python -u src/m04_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase3_sparse.log
-    python -u src/m04_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase3_last5.log
-    python -u src/m04_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
+    python -u src/p03_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log
+    python -u src/p03_same_arch_validation.py --mode full 2>&1 | tee logs/phase3_full.log
+    python -u src/p03_same_arch_validation.py --mode max 2>&1 | tee logs/phase3_max.log
+    python -u src/p03_same_arch_validation.py --mode sanity --models Zephyr_7B Falcon_7B 2>&1 | tee logs/phase3_custom.log
+    python -u src/p03_same_arch_validation.py --mode sanity --lambdas 0.0 0.5 1.0 2>&1 | tee logs/phase3_sparse.log
+    python -u src/p03_same_arch_validation.py --mode sanity --steering-layers -5 -4 -3 -2 -1 2>&1 | tee logs/phase3_last5.log
+    python -u src/p03_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
 
 Modes:
     --mode sanity: 100 samples/category →  1,400 total (~1-2 hrs)
@@ -155,7 +155,7 @@ def generate_missing_steering_vectors(
     mode: str = "sanity",
 ) -> bool:
     """
-    Automatically run m03_extract_steering_vectors.py for missing models.
+    Automatically run p02_extract_steering_vectors.py for missing models.
 
     Args:
         missing_models: List of model keys missing steering vectors
@@ -166,13 +166,13 @@ def generate_missing_steering_vectors(
         True if generation succeeded, False otherwise
     """
     # m03 only supports sanity/full modes, map max→full
-    m03_mode = "full" if mode == "max" else mode
+    p02_mode = "full" if mode == "max" else mode
 
     print(f"\n{'=' * 60}")
     print("AUTO-GENERATING MISSING STEERING VECTORS")
     print(f"{'=' * 60}")
     print(f"Missing models: {missing_models}")
-    print(f"m04 mode: {mode} → m03 mode: {m03_mode}")
+    print(f"p03 mode: {mode} → m03 mode: {p02_mode}")
 
     # Check for stale checkpoint (marked complete but files missing)
     checkpoint_path = steering_vector_dir / "phase2_steering_checkpoint.json"
@@ -181,10 +181,10 @@ def generate_missing_steering_vectors(
         checkpoint_path.unlink()
 
     # Build command
-    m03_script = PROJECT_ROOT / "src" / "m03_extract_steering_vectors.py"
+    p02_script = PROJECT_ROOT / "src" / "p02_extract_steering_vectors.py"
     cmd = [
-        sys.executable, "-u", str(m03_script),
-        "--mode", m03_mode,
+        sys.executable, "-u", str(p02_script),
+        "--mode", p02_mode,
         "--models", *missing_models,
     ]
 
@@ -216,10 +216,10 @@ def generate_missing_steering_vectors(
         return True
 
     except subprocess.CalledProcessError as e:
-        print(f"\nERROR: m03_extract_steering_vectors.py failed with exit code {e.returncode}")
+        print(f"\nERROR: p02_extract_steering_vectors.py failed with exit code {e.returncode}")
         return False
     except Exception as e:
-        print(f"\nERROR: Failed to run m03_extract_steering_vectors.py: {e}")
+        print(f"\nERROR: Failed to run p02_extract_steering_vectors.py: {e}")
         return False
 
 
@@ -1053,7 +1053,7 @@ def main():
 
     if missing_sv:
         print(f"Steering vectors not found for: {missing_sv}")
-        print(f"Auto-generating using m03_extract_steering_vectors.py...")
+        print(f"Auto-generating using p02_extract_steering_vectors.py...")
 
         success = generate_missing_steering_vectors(
             missing_models=missing_sv,

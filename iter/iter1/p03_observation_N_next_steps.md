@@ -1,7 +1,7 @@
 # Phase 3: Same-Architecture Steering Validation - Observations
 
 > **Date**: Jan 24, 2026
-> **Script**: `src/m04_same_arch_validation.py`
+> **Script**: `src/p03_same_arch_validation.py`
 > **Mode**: sanity (100 samples/category)
 
 ![AQI vs Lambda](../../outputs/phase3_same_arch_validation/all_models_comparison.png)
