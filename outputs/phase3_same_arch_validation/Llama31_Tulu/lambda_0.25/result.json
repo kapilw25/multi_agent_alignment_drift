@@ -1,0 +1,8 @@
+{
+  "model_key": "Llama31_Tulu",
+  "lambda": 0.25,
+  "aqi_score": 68.04354571190592,
+  "chi_norm": 100.0,
+  "xb_norm": 36.08709142381185,
+  "n_samples": 1400
+}

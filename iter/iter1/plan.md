@@ -2,8 +2,8 @@
 
 > **Goal**: Achieve alignment homophily across multi-architecture LLMs through latent steering
 > **Narrative**: See [goal_polished.md](../goal_polished.md) for threat model and high-level framing
-> **Status**: Phase 1 Complete, Phase 2 Ready
-> **Last Updated**: Jan 18, 2026
+> **Status**: Phase 1-3 Complete, Phase 4 Ready
+> **Last Updated**: Jan 25, 2026
 
 ---
 
@@ -293,7 +293,7 @@ python -u src/p02_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
 
 ---
 
-### Phase 3: Same-Architecture Validation [IN PROGRESS]
+### Phase 3: Same-Architecture Validation [COMPLETE]
 
 **Goal**: Verify steering works within same architecture
 
@@ -346,23 +346,44 @@ python -u src/p02_extract_steering_vectors.py --no-svd --models Mistral_7B  # sk
    │   ├── aqi_vs_lambda.png          # AQI vs λ curve
    │   ├── aqi_vs_lambda.json         # Raw data
    │   └── per_axiom_curves.png       # Per-axiom breakdown
-   └── summary.json                   # All models comparison
+   └── all_models_comparison.png      # All models comparison
    ```
 
-**Expected**: Monotonic AQI increase with λ
+**Commands**:
+```bash
+python -u src/p03_same_arch_validation.py --mode sanity 2>&1 | tee logs/phase3_sanity.log
+python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_Tulu 2>&1 | tee logs/phase3_tulu.log
+```
 
-**Recommended Models for Phase 3** (combining Phase 1 AQI + Phase 2 CosSim):
+#### Phase 3 Results Summary
 
-| Priority | Model | CosSim | AQI | Why |
-|----------|-------|--------|-----|-----|
-| 1 | **Zephyr_7B** | 0.77 | 55.0 | Highest steering potential + tied baseline |
-| 2 | **Falcon_7B** | 0.78 | 5.0 | High potential + most room to improve |
-| 3 | **Mistral_7B** | 0.83 | 55.0 | Baseline - validate steering doesn't degrade |
+| Model | Pair Type | AQI(λ=0) | AQI(λ=1) | Δ AQI | Monotonic | Verdict |
+|-------|-----------|----------|----------|-------|-----------|---------|
+| **Llama31_Tulu** | SFT→DPO | 58.0 | 79.8 | **+21.8** | ✅ Yes | ✅ **D-STEER Validated** |
+| Falcon_7B | Base→Instruct | 29.5 | 15.3 | -14.2 | ❌ No | ❌ Steering harmful |
+| Mistral_7B | Base→Instruct | 69.3 | 57.9 | -11.4 | ❌ No | ❌ Overshoots then crashes |
+| Zephyr_7B | Base→Instruct | 65.9 | 67.8 | +1.9 | ❌ No | ⚠️ Noisy, marginal gain |
 
-**Rationale**:
-- Low CosSim = large alignment signal extractable
-- Falcon has lowest AQI (5.0) so steering improvement will be most visible
-- Qwen2 (CosSim=0.99) unlikely to respond to steering
+#### Key Findings
+
+1. **Only SFT→DPO pairs produce monotonic AQI improvement**
+   - Llama31_Tulu (SFT→DPO): Clean upward curve from 58 → 80
+   - Base→Instruct pairs: Flat, chaotic, or decreasing
+
+2. **Base→Instruct steering vectors capture mixed signals**:
+   - Instruction-following direction
+   - Format/chat template changes
+   - Alignment direction (buried in noise)
+   - Result: Steering helps some axioms, destroys others
+
+3. **SFT→DPO captures pure alignment direction**:
+   - Only difference is DPO training
+   - Steering vector isolates alignment-specific changes
+
+> **Critical Insight**: The D-STEER paper's use of SFT→DPO pairs is not optional—it's essential.
+> Base→Instruct pairs do NOT work for alignment steering.
+
+> See [plan_b.md](./plan_b.md) for the pivot decision and validation details.
 
 ---
 

@@ -1,40 +1,5 @@
 {
-  "current_model": null,
-  "_checkpoint_time": "2026-01-24T20:39:56.376774",
-  "_checkpoint_name": "phase2_steering",
-  "completed_models": [
-    "Zephyr_7B",
-    "Falcon_7B",
-    "Mistral_7B"
-  ],
-  "results": {
-    "Zephyr_7B": {
-      "model_key": "Zephyr_7B",
-      "display_name": "Zephyr-7B",
-      "num_layers": 32,
-      "hidden_dim": 4096,
-      "mean_cosine_sim_chosen": 0.767242431640625,
-      "mean_cosine_sim_rejected": 0.785552978515625,
-      "output_dir": "/workspace/multi_agent_alignment_drift/outputs/phase2_steering_vectors/Zephyr_7B"
-    },
-    "Falcon_7B": {
-      "model_key": "Falcon_7B",
-      "display_name": "Falcon-7B",
-      "num_layers": 32,
-      "hidden_dim": 4544,
-      "mean_cosine_sim_chosen": 0.7764892578125,
-      "mean_cosine_sim_rejected": 0.776611328125,
-      "output_dir": "/workspace/multi_agent_alignment_drift/outputs/phase2_steering_vectors/Falcon_7B"
-    },
-    "Mistral_7B": {
-      "model_key": "Mistral_7B",
-      "display_name": "Mistral-7B",
-      "num_layers": 32,
-      "hidden_dim": 4096,
-      "mean_cosine_sim_chosen": 0.8304443359375,
-      "mean_cosine_sim_rejected": 0.8387451171875,
-      "output_dir": "/workspace/multi_agent_alignment_drift/outputs/phase2_steering_vectors/Mistral_7B"
-    }
-  },
-  "_complete": true
+  "current_model": "Zephyr_7B",
+  "_checkpoint_time": "2026-01-25T03:11:48.572916",
+  "_checkpoint_name": "phase2_steering"
 }

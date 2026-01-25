@@ -1,7 +1,7 @@
 # Plan B: Tulu SFT→DPO Quick Validation
 
-> **Status**: Ready to execute
-> **Date**: Jan 24, 2026
+> **Status**: ✅ COMPLETE - SUCCESS
+> **Date**: Jan 25, 2026
 > **Goal**: Validate D-STEER hypothesis using genuine SFT→DPO pair before full iter2 training
 
 ---
@@ -72,3 +72,41 @@ python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_Tulu 2>
 | **Pair** | Base → Instruct | SFT → DPO |
 | **What differs** | Everything (pretraining, SFT, RLHF, format) | Only DPO alignment |
 | **Steering captures** | Mixed signal (instruction-following + alignment + noise) | Pure alignment direction |
+
+---
+
+## Actual Results (Jan 25, 2026)
+
+### Llama31_Tulu (SFT→DPO) - ✅ SUCCESS
+
+| λ | AQI Score |
+|---|-----------|
+| 0.00 | 58.0 |
+| 0.25 | 68.0 |
+| 0.50 | 71.5 |
+| 0.75 | 72.1 |
+| 1.00 | **79.8** |
+
+**Result**: **Monotonic Increase** of +21.8 points
+
+### Comparison with Base→Instruct Models
+
+| Model | Pair Type | AQI(λ=0) | AQI(λ=1) | Δ | Monotonic |
+|-------|-----------|----------|----------|---|-----------|
+| **Llama31_Tulu** | SFT→DPO | 58.0 | 79.8 | **+21.8** | ✅ Yes |
+| Falcon_7B | Base→Instruct | 29.5 | 15.3 | -14.2 | ❌ No |
+| Mistral_7B | Base→Instruct | 69.3 | 57.9 | -11.4 | ❌ No |
+| Zephyr_7B | Base→Instruct | 65.9 | 67.8 | +1.9 | ❌ No |
+
+### Conclusion
+
+**D-STEER hypothesis validated.** The problem was the model pairs, not the steering formula.
+
+- SFT→DPO pairs capture **pure alignment direction**
+- Base→Instruct pairs capture **mixed signals** (instruction-following + format + alignment + noise)
+
+### Next Steps
+
+1. Expand to more SFT→DPO pairs in iter2
+2. Investigate cross-architecture steering with SFT→DPO vectors
+3. Consider training custom SFT→DPO pairs for architectures without public pairs

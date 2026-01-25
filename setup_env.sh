@@ -107,7 +107,8 @@ if [ "$1" = "--gpu" ]; then
         texlive-bibtex-extra \
         texlive-science \
         biber \
-        tree
+        tree \
+        aria2
 
     # 1. Install Python 3.12
     echo ""
@@ -143,7 +144,10 @@ if [ "$1" = "--gpu" ]; then
     WHEEL_NAME="flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl"
     WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl"
 
-    curl -L -o "$WHEEL_NAME" "$WHEEL_URL"
+    # Clean any existing/partial wheel files before download
+    rm -f flash_attn*.whl
+    # Use aria2 with 16 parallel connections to bypass GitHub CDN throttling
+    aria2c -x 16 -s 16 -o "$WHEEL_NAME" "$WHEEL_URL"
     pip install "$WHEEL_NAME"
     rm -f "$WHEEL_NAME"
 

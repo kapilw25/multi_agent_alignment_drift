@@ -1,0 +1,15 @@
+{
+  "model_key": "Llama31_Tulu",
+  "display_name": "Llama-3.1-Tulu-8B",
+  "base_model": "allenai/Llama-3.1-Tulu-3-8B-SFT",
+  "instruct_model": "allenai/Llama-3.1-Tulu-3-8B-DPO",
+  "num_samples": 100,
+  "num_layers": 32,
+  "hidden_dim": 4096,
+  "batch_size": 4,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.947509765625,
+  "mean_cosine_sim_rejected": 0.9486083984375,
+  "timestamp": "2026-01-25T03:00:15.034326"
+}

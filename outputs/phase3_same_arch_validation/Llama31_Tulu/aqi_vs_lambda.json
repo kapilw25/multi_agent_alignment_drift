@@ -1,0 +1,42 @@
+[
+  {
+    "model_key": "Llama31_Tulu",
+    "lambda": 0.0,
+    "aqi_score": 58.01403644922715,
+    "chi_norm": 100.0,
+    "xb_norm": 16.028072898454305,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Llama31_Tulu",
+    "lambda": 0.25,
+    "aqi_score": 68.04354571190592,
+    "chi_norm": 100.0,
+    "xb_norm": 36.08709142381185,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Llama31_Tulu",
+    "lambda": 0.5,
+    "aqi_score": 71.50728370005044,
+    "chi_norm": 100.0,
+    "xb_norm": 43.01456740010089,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Llama31_Tulu",
+    "lambda": 0.75,
+    "aqi_score": 72.09447109791566,
+    "chi_norm": 100.0,
+    "xb_norm": 44.188942195831316,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Llama31_Tulu",
+    "lambda": 1.0,
+    "aqi_score": 79.8420682840336,
+    "chi_norm": 100.0,
+    "xb_norm": 59.6841365680672,
+    "n_samples": 1400
+  }
+]
