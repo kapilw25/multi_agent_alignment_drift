@@ -1,5 +1,20 @@
 {
-  "current_model": "Zephyr_7B",
-  "_checkpoint_time": "2026-01-25T03:11:48.572916",
-  "_checkpoint_name": "phase2_steering"
+  "current_model": null,
+  "_checkpoint_time": "2026-01-25T05:36:00.777185",
+  "_checkpoint_name": "phase2_steering",
+  "completed_models": [
+    "Llama31_PKU_Custom"
+  ],
+  "results": {
+    "Llama31_PKU_Custom": {
+      "model_key": "Llama31_PKU_Custom",
+      "display_name": "Llama-3.1-PKU-Custom",
+      "num_layers": 32,
+      "hidden_dim": 4096,
+      "mean_cosine_sim_chosen": 0.9671630859375,
+      "mean_cosine_sim_rejected": 0.966796875,
+      "output_dir": "/workspace/multi_agent_alignment_drift/outputs/phase2_steering_vectors/Llama31_PKU_Custom"
+    }
+  },
+  "_complete": true
 }

@@ -1,6 +1,6 @@
 # iter2 Plan B: Custom SFT→DPO Training for D-STEER Validation
 
-> **Status**: Phase 0 Ready
+> **Status**: Phase 0 COMPLETE (FAILED) → Proceed to Phase 1
 > **Date**: Jan 25, 2026
 > **Goal**: Train custom SFT→DPO pair on Llama 3.1 8B, compare with Tulu reference
 
@@ -10,8 +10,8 @@
 
 | Phase | Model | Cost | Status |
 |-------|-------|------|--------|
-| **0** | Llama31_PKU_Custom | FREE (already trained) | ⏳ **Test Now** |
-| 1 | Tulu 10% subset | ~$15 / 14 hrs | If Phase 0 fails |
+| **0** | Llama31_PKU_Custom | FREE (already trained) | ❌ **FAILED** (Δ=-2.98, not monotonic) |
+| 1 | Tulu 10% subset | ~$15 / 14 hrs | ⏳ **Next Step** |
 | 2 | Tulu Full | ~$160 / 6 days | If Phase 1 succeeds |
 
 **Logic**: Start with cheapest validation, escalate only if needed.
@@ -67,6 +67,46 @@ python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_PKU_Cus
 |--------|----------------|-----------|
 | ✅ Monotonic AQI increase | PKU training valid for D-STEER | Expand to other models |
 | ❌ Flat/erratic AQI | Dataset too small OR hyperparams wrong | Proceed to Phase 1 (Tulu 10%) |
+
+### Phase 0 Results (Jan 25, 2026)
+
+**Command executed:**
+```bash
+python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_PKU_Custom 2>&1 | tee logs/phase3_pku_custom.log
+```
+
+**Llama31_PKU_Custom AQI Trajectory:**
+
+| λ | AQI |
+|---|-----|
+| 0.0 | 68.12 |
+| 0.25 | 55.00 ↓ |
+| 0.50 | 55.00 → |
+| 0.75 | 58.61 ↑ |
+| 1.0 | 65.14 ↑ |
+
+**Pattern**: Erratic U-shaped curve (drops at λ=0.25, recovers but never exceeds baseline)
+
+**Result**: ❌ **FAILED** - AQI decreased by 2.98 points, NOT monotonic
+
+**All 5 Models Comparison:**
+
+| Model | AQI(λ=0) | AQI(λ=1) | Δ | Monotonic |
+|-------|----------|----------|---|-----------|
+| **Llama31_Tulu** | 58.01 | 79.84 | **+21.83** | ✅ YES |
+| Zephyr_7B | 65.86 | 67.78 | +1.92 | ❌ NO |
+| Llama31_PKU_Custom | 68.12 | 65.14 | -2.98 | ❌ NO |
+| Mistral_7B | 69.30 | 57.94 | -11.36 | ❌ NO |
+| Falcon_7B | 29.50 | 15.29 | -14.21 | ❌ NO |
+
+**Key Finding**: Only **Llama31_Tulu** (official AllenAI SFT→DPO pair) shows monotonic AQI improvement. All other models show erratic or declining AQI.
+
+**Likely Causes for PKU Failure:**
+1. **Dataset size**: PKU-SafeRLHF (12K) vs Tulu (939K) = 78× smaller
+2. **Hyperparameters**: SFT LR 40× higher, DPO Beta 50× lower than Tulu
+3. **Training method**: LoRA vs Full fine-tuning
+
+**Conclusion**: D-STEER requires a **true SFT→DPO training relationship** with proper hyperparameters. Proceed to Phase 1 (Tulu 10% subset).
 
 ---
 
@@ -268,8 +308,9 @@ python src/p03_same_arch_validation.py --mode sanity --models Llama31_Custom
 
 | Model | AQI(λ=0) | AQI(λ=1) | Δ | Monotonic |
 |-------|----------|----------|---|-----------|
-| Llama31_Tulu (reference) | 58.0 | 79.8 | +21.8 | ✅ |
-| Llama31_Custom (ours) | ? | ? | ? | ? |
+| Llama31_Tulu (reference) | 58.01 | 79.84 | +21.83 | ✅ |
+| Llama31_PKU_Custom (Phase 0) | 68.12 | 65.14 | -2.98 | ❌ |
+| Llama31_Tulu10pct (Phase 1) | ? | ? | ? | ? |
 
 ---
 

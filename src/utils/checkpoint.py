@@ -178,32 +178,43 @@ def show_checkpoint_menu(ckpt: CheckpointManager, all_models: List[str]) -> str:
         all_models: Full list of models to process
 
     Returns:
-        "resume" - Continue from checkpoint
+        "resume" - Continue from checkpoint (run pending models)
         "restart" - Delete checkpoint and start fresh
+        "complete" - All requested models already done, use cached
         "skip" - No checkpoint exists
     """
     if not ckpt.exists():
         return "skip"
 
     state = ckpt.load()
-    completed = state.get("completed_models", [])
+    completed = set(state.get("completed_models", []))
     current = state.get("current_model")
     is_done = state.get("_complete", False)
+
+    # Check which requested models are already done vs need to run
+    requested = set(all_models)
+    already_done = requested & completed
+    need_to_run = requested - completed
 
     print(f"\n{'=' * 60}")
     print("CHECKPOINT FOUND")
     print(f"{'=' * 60}")
-    print(f"Completed models: {len(completed)}/{len(all_models)}")
+    print(f"Previously completed: {len(completed)}")
     if completed:
-        print(f"  {', '.join(completed)}")
+        print(f"  {', '.join(sorted(completed))}")
+    print(f"Requested models: {len(requested)}")
+    print(f"  {', '.join(sorted(requested))}")
+    if need_to_run:
+        print(f"Need to run: {len(need_to_run)}")
+        print(f"  {', '.join(sorted(need_to_run))}")
     if current:
         print(f"In progress: {current}")
-    if is_done:
-        print("Status: COMPLETE")
     print(f"{'=' * 60}")
 
-    if is_done:
-        print("\n[1] Use cached results (regenerate plots only)")
+    # Case 1: All requested models already completed
+    if not need_to_run:
+        print("\nAll requested models already in cache.")
+        print("[1] Use cached results (regenerate plots only)")
         print("[2] Start fresh (delete checkpoint)")
         choice = input("\nChoice [1/2]: ").strip()
         if choice == "2":
@@ -211,11 +222,21 @@ def show_checkpoint_menu(ckpt: CheckpointManager, all_models: List[str]) -> str:
             return "restart"
         return "complete"
 
-    pending = ckpt.get_pending_models(all_models)
-    print(f"\nPending models: {len(pending)}")
-    if pending:
-        print(f"  {', '.join(pending)}")
+    # Case 2: Some new models to run (preserve existing + add new)
+    if already_done:
+        print(f"\n{len(already_done)} model(s) cached, {len(need_to_run)} new to run.")
+        print("[1] Add new models (preserve existing results)")
+        print("[2] Start fresh (delete checkpoint)")
+        choice = input("\nChoice [1/2]: ").strip()
+        if choice == "2":
+            ckpt.delete()
+            return "restart"
+        # Unmark complete so new models can be added
+        if is_done:
+            ckpt.update(_complete=False)
+        return "resume"
 
+    # Case 3: None of the requested models are done yet
     print("\n[1] Resume from checkpoint")
     print("[2] Start fresh (delete checkpoint)")
     choice = input("\nChoice [1/2]: ").strip()

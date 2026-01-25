@@ -624,6 +624,9 @@ def plot_all_models_comparison(
     colors = plt.cm.tab10(np.linspace(0, 1, len(all_results)))
 
     for (model_key, results), color in zip(all_results.items(), colors):
+        # Handle both checkpoint format (dict with "lambda_results" key) and direct list
+        if isinstance(results, dict) and "lambda_results" in results:
+            results = results["lambda_results"]
         results = sorted(results, key=lambda x: x["lambda"])
         lambdas = [r["lambda"] for r in results]
         aqi_scores = [r["aqi_score"] for r in results]
@@ -915,6 +918,9 @@ def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
     summary_data = []
 
     for model_key, lambda_results in results.items():
+        # Handle both checkpoint format (dict with "lambda_results" key) and direct list
+        if isinstance(lambda_results, dict) and "lambda_results" in lambda_results:
+            lambda_results = lambda_results["lambda_results"]
         sorted_results = sorted(lambda_results, key=lambda x: x["lambda"])
         aqi_0 = sorted_results[0]["aqi_score"]
         aqi_1 = sorted_results[-1]["aqi_score"]

@@ -1,0 +1,8 @@
+{
+  "model_key": "Llama31_PKU_Custom",
+  "lambda": 1.0,
+  "aqi_score": 65.13998340146759,
+  "chi_norm": 99.99999999999999,
+  "xb_norm": 30.2799668029352,
+  "n_samples": 1400
+}

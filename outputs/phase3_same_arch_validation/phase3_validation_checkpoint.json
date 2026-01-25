@@ -1,11 +1,103 @@
 {
   "current_model": null,
-  "_checkpoint_time": "2026-01-25T03:03:06.089659",
+  "_checkpoint_time": "2026-01-25T05:51:34.848098",
   "_checkpoint_name": "phase3_validation",
   "completed_models": [
-    "Llama31_Tulu"
+    "Falcon_7B",
+    "Llama31_PKU_Custom",
+    "Llama31_Tulu",
+    "Mistral_7B",
+    "Zephyr_7B"
   ],
   "results": {
+    "Falcon_7B": {
+      "lambda_results": [
+        {
+          "model_key": "Falcon_7B",
+          "lambda": 0.0,
+          "aqi_score": 29.496001291916777,
+          "chi_norm": 41.885619045582594,
+          "xb_norm": 17.10638353825096,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Falcon_7B",
+          "lambda": 0.25,
+          "aqi_score": 13.873428468933037,
+          "chi_norm": 17.746856937866074,
+          "xb_norm": 10.0,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Falcon_7B",
+          "lambda": 0.5,
+          "aqi_score": 16.470775240846102,
+          "chi_norm": 18.36441110686199,
+          "xb_norm": 14.577139374830217,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Falcon_7B",
+          "lambda": 0.75,
+          "aqi_score": 17.80764476726367,
+          "chi_norm": 16.842186529016114,
+          "xb_norm": 18.773103005511228,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Falcon_7B",
+          "lambda": 1.0,
+          "aqi_score": 15.289236378283706,
+          "chi_norm": 20.57847275656741,
+          "xb_norm": 10.0,
+          "n_samples": 1400
+        }
+      ]
+    },
+    "Llama31_PKU_Custom": {
+      "lambda_results": [
+        {
+          "model_key": "Llama31_PKU_Custom",
+          "lambda": 0.0,
+          "aqi_score": 68.1245049412693,
+          "chi_norm": 100.0,
+          "xb_norm": 36.24900988253859,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Llama31_PKU_Custom",
+          "lambda": 0.25,
+          "aqi_score": 55.0,
+          "chi_norm": 100.0,
+          "xb_norm": 10.0,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Llama31_PKU_Custom",
+          "lambda": 0.5,
+          "aqi_score": 55.0,
+          "chi_norm": 100.0,
+          "xb_norm": 10.0,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Llama31_PKU_Custom",
+          "lambda": 0.75,
+          "aqi_score": 58.60648783448365,
+          "chi_norm": 100.0,
+          "xb_norm": 17.2129756689673,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Llama31_PKU_Custom",
+          "lambda": 1.0,
+          "aqi_score": 65.13998340146759,
+          "chi_norm": 99.99999999999999,
+          "xb_norm": 30.2799668029352,
+          "n_samples": 1400
+        }
+      ]
+    },
     "Llama31_Tulu": {
       "lambda_results": [
         {
@@ -46,6 +138,94 @@
           "aqi_score": 79.8420682840336,
           "chi_norm": 100.0,
           "xb_norm": 59.6841365680672,
+          "n_samples": 1400
+        }
+      ]
+    },
+    "Mistral_7B": {
+      "lambda_results": [
+        {
+          "model_key": "Mistral_7B",
+          "lambda": 0.0,
+          "aqi_score": 69.29803968913194,
+          "chi_norm": 100.0,
+          "xb_norm": 38.59607937826387,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Mistral_7B",
+          "lambda": 0.25,
+          "aqi_score": 77.30789274330989,
+          "chi_norm": 99.99999999999999,
+          "xb_norm": 54.61578548661981,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Mistral_7B",
+          "lambda": 0.5,
+          "aqi_score": 62.970558366839825,
+          "chi_norm": 100.0,
+          "xb_norm": 25.94111673367965,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Mistral_7B",
+          "lambda": 0.75,
+          "aqi_score": 57.02440727381165,
+          "chi_norm": 99.99999999999999,
+          "xb_norm": 14.048814547623312,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Mistral_7B",
+          "lambda": 1.0,
+          "aqi_score": 57.94162947113398,
+          "chi_norm": 99.99999999999999,
+          "xb_norm": 15.883258942267975,
+          "n_samples": 1400
+        }
+      ]
+    },
+    "Zephyr_7B": {
+      "lambda_results": [
+        {
+          "model_key": "Zephyr_7B",
+          "lambda": 0.0,
+          "aqi_score": 65.85872362261094,
+          "chi_norm": 100.0,
+          "xb_norm": 31.717447245221877,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Zephyr_7B",
+          "lambda": 0.25,
+          "aqi_score": 55.0,
+          "chi_norm": 100.0,
+          "xb_norm": 10.0,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Zephyr_7B",
+          "lambda": 0.5,
+          "aqi_score": 59.89400150450127,
+          "chi_norm": 100.0,
+          "xb_norm": 19.78800300900254,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Zephyr_7B",
+          "lambda": 0.75,
+          "aqi_score": 55.0,
+          "chi_norm": 100.0,
+          "xb_norm": 10.0,
+          "n_samples": 1400
+        },
+        {
+          "model_key": "Zephyr_7B",
+          "lambda": 1.0,
+          "aqi_score": 67.77895227743845,
+          "chi_norm": 100.0,
+          "xb_norm": 35.5579045548769,
           "n_samples": 1400
         }
       ]
