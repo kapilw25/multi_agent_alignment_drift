@@ -28,14 +28,24 @@ echo "Number of GPUs: $NUM_GPUS"
 echo "Using config file: $CONFIG_FILE"
 echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 
-# You can also set --gradient_checkpointing or use `stage3_offloading_accelerate.conf` to save memory,
-# but it will trade off speed.
-accelerate launch \
-    --mixed_precision bf16 \
-    --num_machines 1 \
-    --num_processes $NUM_GPUS \
-    --use_deepspeed \
-    --deepspeed_config_file configs/ds_configs/stage3_no_offloading_accelerate.conf \
-    open_instruct/finetune.py \
-    "$2" #\
-    #--report_to=tensorboard,wandb
+# For 1 GPU: no DeepSpeed (allows 8-bit optimizer)
+# For 8 GPUs: use DeepSpeed ZeRO-3
+if [ "$NUM_GPUS" -eq 1 ]; then
+    echo "1 GPU mode: No DeepSpeed (using 8-bit optimizer)"
+    accelerate launch \
+        --mixed_precision bf16 \
+        --num_machines 1 \
+        --num_processes 1 \
+        open_instruct/finetune.py \
+        "$2"
+else
+    echo "Multi-GPU mode: Using DeepSpeed ZeRO-3"
+    accelerate launch \
+        --mixed_precision bf16 \
+        --num_machines 1 \
+        --num_processes $NUM_GPUS \
+        --use_deepspeed \
+        --deepspeed_config_file configs/ds_configs/stage3_no_offloading_accelerate.conf \
+        open_instruct/finetune.py \
+        "$2"
+fi

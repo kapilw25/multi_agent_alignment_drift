@@ -10,6 +10,7 @@ dataset_mixer:
 # tokenizer_name: allenai/Llama-3.1-Tulu-3-8B-SFT  # ORIGINAL
 tokenizer_name: output/mahals_llama31_8b_sft_10pct  # MAHALS: use OUR SFT tokenizer
 use_slow_tokenizer: true
+chat_template_name: tulu  # Required for chat format
 max_seq_length: 2048
 preprocessing_num_workers: 16
 per_device_train_batch_size: 1
@@ -24,8 +25,7 @@ num_epochs: 1
 output_dir: output/mahals_llama31_8b_dpo_10pct  # MAHALS: distinct output for our DPO model
 with_tracking: true
 report_to:
-  - wandb
-  - tensorboard  # MAHALS: saves metrics to output_dir/
+  - tensorboard  # MAHALS: saves metrics to output_dir/ (wandb disabled)
 logging_steps: 1
 use_lora: false
 loss_type: dpo_norm

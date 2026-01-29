@@ -1,7 +1,7 @@
 # iter2 Plan C: MAHALS Training Commands
 
-> **Status**: Ready to execute on GPU machine
-> **Date**: Jan 27, 2026
+> **Status**: 1 GPU Sanity Test PASSED (Jan 29, 2026)
+> **Date**: Jan 27, 2026 (updated Jan 29, 2026)
 
 ---
 
@@ -41,14 +41,31 @@ pip install -e .      # Pip fallback (if uv unavailable)
 cd literature/tulu_train
 source .venv/bin/activate
 mkdir -p logs
+tmux # very important incase your local machine lose connection [happens frequenty during long idle activity on local machine] to instance, though INstance is running in background
 
 # Step 1: SFT Training
-sh scripts/finetune_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_training.log  # sanity (1 GPU)
-sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee -a logs/sft_training.log  # full (8 GPUs)
+
+# sanity (1 GPU)
+sh scripts/finetune_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_training.log
+
+# ⚠️ BEFORE 8 GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
+#    In configs/train_configs/mahals/llama31_8b_sft_10pct.yaml:
+#    use_8bit_optimizer: false  # Must be false for DeepSpeed ZeRO-3
+
+# full (8 GPUs)
+sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee -a logs/sft_training.log  
 
 # Step 2: DPO Training (after SFT completes)
-sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_training.log  # sanity (1 GPU)
-sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee -a logs/dpo_training.log  # full (8 GPUs)
+
+# sanity (1 GPU)
+sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_training.log
+
+# ⚠️ BEFORE 8 GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
+#    In configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml:
+#    use_8bit_optimizer: false  # Must be false for DeepSpeed ZeRO-3
+
+# full (8 GPUs)
+sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee -a logs/dpo_training.log
 ```
 
 ---
@@ -168,3 +185,81 @@ sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/ma
 ```
 
 No manual intervention needed - open-instruct auto-detects checkpoints in `output_dir`.
+
+---
+
+## Debugging Log (Jan 29, 2026)
+
+### Sanity Test Results (1 GPU, A100 80GB)
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Distributed | `DistributedType.NO` | No DeepSpeed (8-bit optimizer active) |
+| Loss | 1.26 → 0.75 avg | Decreasing (healthy) |
+| TPS | ~2000 tokens/sec | Good throughput |
+| LR | Warming up | Correct schedule |
+| Memory | No OOM | Fits in 80GB |
+
+**Sanity test PASSED** after resolving 9 issues.
+
+---
+
+### Loss Analysis (Extended Run)
+
+| Step | Loss | Notes |
+|------|------|-------|
+| 1 | 1.26 | Initial loss |
+| 50 | ~1.05 | Early decrease |
+| 1366-1368 | 0.60 - 0.98 | Fluctuating but stable |
+| **Average** | **~0.75** | **~40-50% reduction** |
+
+**Verdict**: ✅ Training is HEALTHY
+- Loss decreased ~40-50% from initial
+- Fluctuation in 0.6-1.0 range is normal for SFT
+- No NaN, no OOM, no gradient explosion
+- Ready for 8 GPU full training
+
+---
+
+### Bugs Fixed in open-instruct Codebase
+
+| # | Error | Fix | File |
+|---|-------|-----|------|
+| 1 | YAML config not parsed | `parse()` instead of `parse_args_into_dataclasses()` | `finetune.py:964` |
+| 2 | `dpo_tune.py` not found | Script path → `dpo.py` | `dpo_train_...mahals.sh` |
+| 3 | Two dataset selection mechanisms | `dataset_mixer_list` default → `None` | `finetune.py:128` |
+| 4 | wandb API key error | Added `wandb_enabled` guard | `finetune.py:426-428` |
+| 5 | TensorBoard type error | Whitelist sanitization for config | `finetune.py:433-435` |
+| 6 | Float not iterable | Handle numeric types from YAML | `dataset_transformation.py:1956` |
+| 7 | Chat template not set | Added `chat_template_name: tulu` | YAML configs |
+| 8 | Dataset cache stale | Clear `local_dataset_cache/` when config changes | Manual |
+| 9 | OOM with DeepSpeed | 1 GPU: No DeepSpeed + 8-bit optimizer | `finetune_...mahals.sh` |
+
+---
+
+### Key Configuration for 1 GPU vs 8 GPU
+
+**1 GPU Sanity Test:**
+- No DeepSpeed (allows 8-bit optimizer)
+- `use_8bit_optimizer: true` in YAML
+- Memory: ~50GB on A100 80GB
+
+**8 GPU Full Training:**
+- DeepSpeed ZeRO-3 (shards model across GPUs)
+- `use_8bit_optimizer: false` ⚠️ **MUST toggle before 8 GPU run**
+- Memory: distributed across 8 GPUs
+
+> **Toggle Checklist (before scaling to 8 GPU):**
+> ```yaml
+> # In llama31_8b_sft_10pct.yaml and llama31_8b_dpo_10pct.yaml:
+> use_8bit_optimizer: false  # Change from true → false
+> ```
+
+---
+
+### Cache Clearing (if config changes)
+
+```bash
+# Clear dataset cache when changing max_seq_length or tokenizer settings
+rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*
+```

@@ -125,7 +125,7 @@ class FlatArguments:
     dataset_mixer: dict | None = field(
         default=None, metadata={"help": "A dictionary of datasets (local or HF) to sample from."}
     )
-    dataset_mixer_list: list[str] = field(default_factory=lambda: ["allenai/tulu-3-sft-personas-algebra", "1.0"])
+    dataset_mixer_list: list[str] | None = field(default=None)
     """A list of datasets (local or HF) to sample from."""
     dataset_mixer_list_splits: list[str] = field(default_factory=lambda: ["train"])
     """The dataset splits to use for training"""
@@ -418,16 +418,21 @@ def main(args: FlatArguments, tc: TokenizerConfig):
     # Initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if args.with_tracking:
-        experiment_config = vars(args)
+        experiment_config = vars(args).copy()
         # TensorBoard cannot log Enums, need the raw value
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"]
 
-        # (Optional) Ai2 internal tracking
-        if args.wandb_entity is None:
+        # (Optional) Ai2 internal tracking - only if wandb is enabled
+        wandb_enabled = "wandb" in args.report_to if isinstance(args.report_to, list) else args.report_to in ["wandb", "all"]
+        if wandb_enabled and args.wandb_entity is None:
             args.wandb_entity = maybe_use_ai2_wandb_entity()
         if accelerator.is_main_process and is_beaker_job():
             experiment_config.update(vars(beaker_config))
         experiment_config.update(vars(tc))
+        # Sanitize for TensorBoard: only accepts int, float, str, bool, Tensor
+        for key, value in list(experiment_config.items()):
+            if not isinstance(value, (int, float, str, bool)):
+                experiment_config[key] = str(value) if value is not None else "None"
         accelerator.init_trackers(
             args.wandb_project_name,
             experiment_config,
@@ -439,8 +444,11 @@ def main(args: FlatArguments, tc: TokenizerConfig):
                 }
             },
         )
-        wandb_tracker = accelerator.get_tracker("wandb")
-        maybe_update_beaker_description(wandb_url=wandb_tracker.run.get_url())
+        if wandb_enabled:
+            wandb_tracker = accelerator.get_tracker("wandb")
+            maybe_update_beaker_description(wandb_url=wandb_tracker.run.get_url())
+        else:
+            wandb_tracker = None
     else:
         wandb_tracker = None  # for later eval launching
 
@@ -961,5 +969,5 @@ if __name__ == "__main__":
     utils.check_oe_eval_internal()
 
     parser = ArgumentParserPlus((FlatArguments, TokenizerConfig))
-    args, tc = parser.parse_args_into_dataclasses()
+    args, tc = parser.parse()  # .parse() handles YAML configs, parse_args_into_dataclasses() does not
     main(args, tc)

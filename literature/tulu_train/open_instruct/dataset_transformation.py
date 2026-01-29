@@ -1953,7 +1953,9 @@ def load_dataset_configs(
     for i in range(0, len(dataset_mixer_list), 2):
         dataset_name = dataset_mixer_list[i]
         frac_or_num_samples = dataset_mixer_list[i + 1]
-        frac_or_num_samples = float(frac_or_num_samples) if "." in frac_or_num_samples else int(frac_or_num_samples)
+        # Handle both string (from CLI) and numeric (from YAML) types
+        if isinstance(frac_or_num_samples, str):
+            frac_or_num_samples = float(frac_or_num_samples) if "." in frac_or_num_samples else int(frac_or_num_samples)
         # Uses dataset_mixer_list_splits[i] where i increments by 2 (0, 2, 4...). This works because
         # all current usage provides a single split that gets replicated to len(dataset_mixer_list).
         # If different splits per dataset are needed, use dataset_mixer_list_splits[i // 2] instead.
