@@ -132,38 +132,53 @@ Train our own SFT→DPO pair and verify we get similar results before expanding 
 
 ---
 
-## Tulu 3 Official Training Configs
+## Llama31_Tulu (AllenAI Official) - Full Training Configuration
 
-### SFT Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| Base Model | `meta-llama/Llama-3.1-8B` |
-| Dataset | `allenai/tulu-3-sft-mixture` (939K samples) |
-| Learning Rate | 5e-6 |
-| LR Schedule | Linear |
-| Warmup Ratio | 0.03 (3%) |
-| Epochs | 2 |
-| Effective Batch Size | 128 |
-| Max Sequence Length | 4096 |
-| Method | Full fine-tuning |
-| Precision | BF16 |
-
-### DPO Configuration
+### SFT Stage
 
 | Parameter | Value |
 |-----------|-------|
-| Base Model | `allenai/Llama-3.1-Tulu-3-8B-SFT` |
-| Dataset | `allenai/llama-3.1-tulu-3-8b-preference-mixture` |
-| Learning Rate | 5e-7 |
-| LR Schedule | Linear |
-| Warmup Ratio | 0.1 (10%) |
-| Epochs | 1 |
-| Effective Batch Size | 128 |
-| Max Sequence Length | 2048 |
-| Beta (KL Penalty) | 5.0 |
-| Method | Full fine-tuning |
-| Precision | BF16 |
+| **Base Model** | `meta-llama/Llama-3.1-8B` |
+| **Dataset** | `allenai/tulu-3-sft-mixture` |
+| **Dataset Size** | 939,344 samples |
+| **Learning Rate** | 5e-6 |
+| **LR Schedule** | Linear |
+| **Warmup Ratio** | 0.03 (3%) |
+| **Epochs** | 2 |
+| **Effective Batch Size** | 128 |
+| **Max Sequence Length** | 4096 |
+| **Method** | Full fine-tuning |
+| **Precision** | BF16 |
+| **Output** | `allenai/Llama-3.1-Tulu-3-8B-SFT` |
+
+### DPO Stage
+
+| Parameter | Value |
+|-----------|-------|
+| **Base Model** | `allenai/Llama-3.1-Tulu-3-8B-SFT` |
+| **Dataset** | `allenai/llama-3.1-tulu-3-8b-preference-mixture` |
+| **Learning Rate** | 5e-7 |
+| **LR Schedule** | Linear |
+| **Warmup Ratio** | 0.1 (10%) |
+| **Epochs** | 1 |
+| **Effective Batch Size** | 128 |
+| **Max Sequence Length** | 2048 |
+| **Beta (KL Penalty)** | 5.0 |
+| **Method** | Full fine-tuning |
+| **Precision** | BF16 |
+| **Output** | `allenai/Llama-3.1-Tulu-3-8B-DPO` |
+
+### Comparison: Tulu Official vs PKU Custom (Failed)
+
+| Parameter | Tulu Official | PKU Custom | Ratio |
+|-----------|---------------|------------|-------|
+| **SFT Dataset** | 939K | 12K | 78× |
+| **SFT LR** | 5e-6 | 2e-4 | 40× lower |
+| **SFT Epochs** | 2 | 1 | 2× |
+| **DPO LR** | 5e-7 | 1e-5 | 20× lower |
+| **DPO Beta** | 5.0 | 0.1 | 50× higher |
+| **Method** | Full FT | LoRA | ~4× compute |
+| **AQI Δ** | **+21.83** | **-2.98** | ❌ |
 
 ---
 
@@ -256,44 +271,91 @@ Only if Phase 1 succeeds:
 
 ---
 
-## Execution Plan
+## Decision: Use open-instruct Instead of Custom Scripts
 
-### Step 1: Modify Training Scripts
+### Why Switch?
 
-```python
-# Changes needed in SFT script:
-- dataset = "allenai/tulu-3-sft-mixture"
-- learning_rate = 5e-6
-- num_epochs = 2
-- warmup_ratio = 0.03
+| Original Plan | New Plan |
+|---------------|----------|
+| Copy scripts from `finetuning_evaluation` | Use AllenAI's `open-instruct` directly |
+| Write custom Python code | Just modify YAML configs |
+| Risk of bugs, debugging | Zero risk (same code trained Tulu 3) |
+| ~1-2 days coding | ~1 hour setup |
 
-# Changes needed in DPO script:
-- dataset = "allenai/llama-3.1-tulu-3-8b-preference-mixture"
-- learning_rate = 5e-7
-- beta = 5.0
-- warmup_ratio = 0.1
-```
+### Industry Standard Validation
 
-### Step 2: Train Custom Pair
+Web search confirms this is the standard approach among ML researchers in 2025:
+
+- **open-instruct** is the exact codebase that trained Tulu 3 (published at COLM 2025)
+- **Framework > Custom Scripts**: "Teams can use existing supervised learning frameworks... training process is more stable" — [HuggingFace TRL](https://huggingface.co/docs/trl/main/en/dpo_trainer)
+- **SFT → DPO is established workflow**: "Combined SFT-then-DPO workflow converges faster and yields higher-quality results" — [OpenAI Cookbook](https://cookbook.openai.com/examples/fine_tuning_direct_preference_optimization_guide)
+
+### Submodule Added
 
 ```bash
-# SFT (using 10% subset for validation)
-python train_sft.py --dataset allenai/tulu-3-sft-mixture --subset 0.1 --epochs 2
+# Already added to MAHALS repo
+git submodule add https://github.com/allenai/open-instruct.git literature/tulu_train
+git submodule add https://github.com/allenai/olmes.git literature/tulu_eval
+```
 
-# DPO (on top of SFT)
-python train_dpo.py --base_model <custom_sft> --dataset allenai/llama-3.1-tulu-3-8b-preference-mixture --subset 0.1
+---
+
+## Execution Plan (Using open-instruct)
+
+### Step 1: Create Custom Config Files
+
+Create configs in `literature/tulu_train/configs/train_configs/mahals/`:
+
+**llama31_8b_sft_10pct.yaml:**
+```yaml
+model_name_or_path: meta-llama/Llama-3.1-8B
+dataset_mixer:
+    allenai/tulu-3-sft-mixture: 0.1  # 10% subset
+learning_rate: 5.0e-06
+num_train_epochs: 2
+warmup_ratio: 0.03
+lr_scheduler_type: linear
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16  # effective batch 128 on 8 GPUs
+max_seq_length: 2048
+```
+
+**llama31_8b_dpo_10pct.yaml:**
+```yaml
+model_name_or_path: <path_to_sft_output>
+dataset_mixer:
+    allenai/llama-3.1-tulu-3-8b-preference-mixture: 0.1
+learning_rate: 5.0e-07
+num_epochs: 1
+warmup_ratio: 0.1
+beta: 5
+max_seq_length: 2048
+```
+
+### Step 2: Run Training (on GPU machine)
+
+```bash
+cd literature/tulu_train
+
+# SFT Training
+./scripts/finetune_with_accelerate.sh \
+    --config configs/train_configs/mahals/llama31_8b_sft_10pct.yaml
+
+# DPO Training
+./scripts/dpo_train_with_accelerate.sh \
+    --config configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml
 ```
 
 ### Step 3: Register in MAHALS
 
 ```json
 {
-  "Llama31_Custom": {
-    "base": "kapilw25/Llama31_Custom_SFT",
-    "instruct": "kapilw25/Llama31_Custom_DPO",
+  "Llama31_Tulu10pct": {
+    "base": "kapilw25/Llama31_Tulu10pct_SFT",
+    "instruct": "kapilw25/Llama31_Tulu10pct_DPO",
     "hidden_dim": 4096,
     "num_layers": 32,
-    "note": "Custom SFT→DPO pair for D-STEER validation"
+    "note": "Custom SFT→DPO pair (Tulu 10% subset, open-instruct)"
   }
 }
 ```
@@ -301,7 +363,7 @@ python train_dpo.py --base_model <custom_sft> --dataset allenai/llama-3.1-tulu-3
 ### Step 4: Validate
 
 ```bash
-python src/p03_same_arch_validation.py --mode sanity --models Llama31_Custom
+python src/p03_same_arch_validation.py --mode sanity --models Llama31_Tulu10pct
 ```
 
 ### Step 5: Compare
@@ -321,3 +383,9 @@ python src/p03_same_arch_validation.py --mode sanity --models Llama31_Custom
 - [AllenAI open-instruct GitHub](https://github.com/allenai/open-instruct)
 - [Llama-3.1-Tulu-3-8B-SFT](https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-SFT)
 - [Llama-3.1-Tulu-3-8B-DPO](https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-DPO)
+
+---
+
+## Next Step
+
+**→ See [plan_c.md](plan_c.md) for Phase 1 implementation details**

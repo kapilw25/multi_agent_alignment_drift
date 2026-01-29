@@ -1,0 +1,43 @@
+# model_name_or_path: allenai/Llama-3.1-Tulu-3-8B-SFT  # ORIGINAL: AllenAI's official SFT
+model_name_or_path: output/mahals_llama31_8b_sft_10pct  # MAHALS: use OUR SFT model from Step 1
+model_revision: main
+use_flash_attn: true
+gradient_checkpointing: true
+# MAHALS MODIFICATION: 10% preference dataset for validation
+dataset_mixer:
+    # allenai/llama-3.1-tulu-3-8b-preference-mixture: 1.0  # ORIGINAL: 100% preference data
+    allenai/llama-3.1-tulu-3-8b-preference-mixture: 0.1  # MAHALS: 10% = saves ~90% compute
+# tokenizer_name: allenai/Llama-3.1-Tulu-3-8B-SFT  # ORIGINAL
+tokenizer_name: output/mahals_llama31_8b_sft_10pct  # MAHALS: use OUR SFT tokenizer
+use_slow_tokenizer: true
+max_seq_length: 2048
+preprocessing_num_workers: 16
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16  # MAHALS: for 8 GPUs (8 x 1 x 16 = 128, same effective batch)
+# NOTE: For 1 GPU sanity test, change to 128 (1 x 1 x 128 = 128)
+learning_rate: 5.0e-7
+lr_scheduler_type: linear
+warmup_ratio: 0.1
+weight_decay: 0.0
+num_epochs: 1
+# output_dir: output/dpo_8b  # ORIGINAL
+output_dir: output/mahals_llama31_8b_dpo_10pct  # MAHALS: distinct output for our DPO model
+with_tracking: true
+report_to:
+  - wandb
+  - tensorboard  # MAHALS: saves metrics to output_dir/
+logging_steps: 1
+use_lora: false
+loss_type: dpo_norm
+beta: 5
+checkpointing_steps: 1000
+keep_last_n_checkpoints: 3        # Keep last 3 checkpoints during training
+clean_checkpoints_at_end: false   # CRITICAL: Don't delete checkpoints after training!
+
+# MAHALS: Auto-push to HuggingFace after training
+# Pattern: {Model}-{Size}-{Dataset}{Subset}-{Method}-{Project}
+push_to_hub: true
+hf_entity: anonymousML123  # for blind submission
+hf_repo_id: anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS
+exp_name: Llama-3.1-8B-Tulu10pct-DPO-MAHALS
+seed: 123
