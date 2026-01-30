@@ -45,26 +45,32 @@ tmux # very important incase your local machine lose connection [happens frequen
 
 # Step 1: SFT Training
 
-# sanity (1 GPU)
+# sanity (1 GPU) - validates: data loading, loss decrease, no NaN
 sh scripts/finetune_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_training.log
 
-# ⚠️ BEFORE 8 GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
+# ⚠️ BEFORE 2+ GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
 #    In configs/train_configs/mahals/llama31_8b_sft_10pct.yaml:
 #    use_8bit_optimizer: false  # Must be false for DeepSpeed ZeRO-3
 
-# full (8 GPUs)
+# DeepSpeed test (2 GPUs) - validates: ZeRO-3 init, NCCL, gradient sync, model sharding
+sh scripts/finetune_with_accelerate_config_mahals.sh 2 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_2gpu_test.log
+
+# full (8 GPUs) - only after 2 GPU test passes
 sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee -a logs/sft_training.log  
 
 # Step 2: DPO Training (after SFT completes)
 
-# sanity (1 GPU)
+# sanity (1 GPU) - validates: data loading, loss decrease, no NaN
 sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_training.log
 
-# ⚠️ BEFORE 8 GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
+# ⚠️ BEFORE 2+ GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
 #    In configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml:
 #    use_8bit_optimizer: false  # Must be false for DeepSpeed ZeRO-3
 
-# full (8 GPUs)
+# DeepSpeed test (2 GPUs) - validates: ZeRO-3 init, NCCL, gradient sync, model sharding
+sh scripts/dpo_train_with_accelerate_config_mahals.sh 2 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_2gpu_test.log
+
+# full (8 GPUs) - only after 2 GPU test passes
 sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee -a logs/dpo_training.log
 ```
 
@@ -237,23 +243,36 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 
 ---
 
-### Key Configuration for 1 GPU vs 8 GPU
+### Key Configuration for 1 GPU vs 2 GPU vs 8 GPU
 
-**1 GPU Sanity Test:**
-- No DeepSpeed (allows 8-bit optimizer)
-- `use_8bit_optimizer: true` in YAML
-- Memory: ~50GB on A100 80GB
+| Config | 1 GPU (Sanity) | 2 GPU (DeepSpeed Test) | 8 GPU (Full) |
+|--------|----------------|------------------------|--------------|
+| DeepSpeed | ❌ No | ✅ ZeRO-3 | ✅ ZeRO-3 |
+| 8-bit Optimizer | ✅ true | ❌ false | ❌ false |
+| Validates | Data, loss, NaN | NCCL, sharding, sync | Full training |
+| Cost | ~$2 | ~$5 | ~$100+ |
 
-**8 GPU Full Training:**
-- DeepSpeed ZeRO-3 (shards model across GPUs)
-- `use_8bit_optimizer: false` ⚠️ **MUST toggle before 8 GPU run**
-- Memory: distributed across 8 GPUs
-
-> **Toggle Checklist (before scaling to 8 GPU):**
+> **Toggle Checklist (before 2+ GPU):**
 > ```yaml
 > # In llama31_8b_sft_10pct.yaml and llama31_8b_dpo_10pct.yaml:
 > use_8bit_optimizer: false  # Change from true → false
 > ```
+
+### 2 GPU Test: What to Look For
+
+✅ **GREEN FLAGS:**
+```
+DeepSpeed ZeRO Stage 3 initialized
+NCCL initialized successfully
+Loss decreasing across steps
+```
+
+❌ **RED FLAGS:**
+```
+NCCL timeout/connection refused
+DeepSpeed initialization failed
+Hang at distributed barrier
+```
 
 ---
 
