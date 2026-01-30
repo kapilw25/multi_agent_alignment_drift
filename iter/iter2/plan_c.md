@@ -72,19 +72,20 @@ sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mah
 # Step 2: DPO Training (after SFT completes)
 rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/* 
 # sanity (1 GPU) - validates: data loading, loss decrease, no NaN
-sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_training.log
+sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_1gpu_test.log
 
 # ⚠️ BEFORE 2+ GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
 #    In configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml:
 #    use_8bit_optimizer: false  # Must be false for DeepSpeed ZeRO-3
 
 # DeepSpeed test (2 GPUs) - validates: ZeRO-3 init, NCCL, gradient sync, model sharding
+rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/* 
 sh scripts/dpo_train_with_accelerate_config_mahals.sh 2 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_2gpu_test.log
 
 # full (8 GPUs) - only after 2 GPU test passes
 rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*  
 huggingface-cli login --token hf_***
-sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee -a logs/dpo_training.log
+sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee -a logs/dpo_8gpu_test.log
 ```
 
 ---
@@ -185,6 +186,34 @@ sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mah
 **DPO**: `train_loss`, `rewards/chosen`, `rewards/rejected`, `rewards/accuracy`, `rewards/margin`
 
 > ⚠️ **DPO Initial Loss Delay**: DPO caches reference model logprobs first. **No loss shown for several minutes** - this is normal.
+
+---
+
+### DPO-Specific: What to Watch For (First 50 Steps)
+
+| Check | Expected | Red Flag |
+|-------|----------|----------|
+| Reference model caching | "Computing reference logprobs" message | OOM during caching |
+| Loss appears | After 2-5 min (reference caching done) | Never shows loss |
+| Loss value | ~0.5-1.5 initial | NaN or >10 |
+| rewards/accuracy | Should appear | Missing metric |
+| Memory | ~45-55 GB per GPU | OOM |
+
+**DPO Green Flags in Logs:**
+```
+Computing reference model logprobs...  ← Normal, takes 2-5 min
+Step 1: loss = 0.693                   ← DPO loss should start here
+rewards/chosen: 0.1                    ← Preference learning
+rewards/rejected: -0.1                 ← Should be lower than chosen
+rewards/accuracy: 0.5                  ← Should increase over time
+```
+
+**DPO Red Flags:**
+```
+CUDA out of memory                     ← Reduce batch to 1, grad_accum to 16
+loss = nan                             ← Check beta value or data
+rewards/accuracy stuck at 0.5          ← Model not learning preferences
+```
 
 ---
 
