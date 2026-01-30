@@ -1,7 +1,15 @@
 # iter2 Plan C: MAHALS Training Commands
 
-> **Status**: 2 GPU DeepSpeed Test PASSED (Jan 30, 2026)
+> **Status**: ✅ SFT COMPLETE & PUSHED TO HF | DPO Ready | Batch Size Optimized (Jan 30, 2026)
 > **Date**: Jan 27, 2026 (updated Jan 30, 2026)
+>
+> **Progress**:
+> - ✅ SFT 1-GPU sanity test PASSED
+> - ✅ SFT 2-GPU DeepSpeed test PASSED
+> - ✅ SFT 8-GPU full training COMPLETE (5h 11m, batch=1)
+> - ✅ SFT model pushed to HuggingFace: [anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS)
+> - ✅ DPO bugs #10, #11, #12 fixed (ready to run)
+> - ✅ Batch size optimized: batch=2, grad_accum=8 (for DPO, ~1.5x faster)
 
 ---
 
@@ -42,6 +50,7 @@ cd literature/tulu_train
 source .venv/bin/activate
 mkdir -p logs
 tmux # very important incase your local machine lose connection [happens frequenty during long idle activity on local machine] to instance, though INstance is running in background
+rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*  
 
 # Step 1: SFT Training
 
@@ -56,10 +65,12 @@ sh scripts/finetune_with_accelerate_config_mahals.sh 1 configs/train_configs/mah
 sh scripts/finetune_with_accelerate_config_mahals.sh 2 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_2gpu_test.log
 
 # full (8 GPUs) - only after 2 GPU test passes
+rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*  
+huggingface-cli login --token hf_***
 sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee -a logs/sft_training.log  
 
 # Step 2: DPO Training (after SFT completes)
-
+rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/* 
 # sanity (1 GPU) - validates: data loading, loss decrease, no NaN
 sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_training.log
 
@@ -71,6 +82,8 @@ sh scripts/dpo_train_with_accelerate_config_mahals.sh 1 configs/train_configs/ma
 sh scripts/dpo_train_with_accelerate_config_mahals.sh 2 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee logs/dpo_2gpu_test.log
 
 # full (8 GPUs) - only after 2 GPU test passes
+rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*  
+huggingface-cli login --token hf_***
 sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml 2>&1 | tee -a logs/dpo_training.log
 ```
 
@@ -78,8 +91,10 @@ sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/ma
 
 ## Output Models
 
-- SFT → `output/mahals_llama31_8b_sft_10pct`
-- DPO → `output/mahals_llama31_8b_dpo_10pct`
+| Stage | Local Path | HuggingFace |
+|-------|------------|-------------|
+| SFT | `output/mahals_llama31_8b_sft_10pct` | [anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS) ✅ |
+| DPO | `output/mahals_llama31_8b_dpo_10pct` | [anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS) (pending) |
 
 ---
 
@@ -229,6 +244,8 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 
 ### Bugs Fixed in open-instruct Codebase
 
+#### SFT Bugs (finetune.py)
+
 | # | Error | Fix | File |
 |---|-------|-----|------|
 | 1 | YAML config not parsed | `parse()` instead of `parse_args_into_dataclasses()` | `finetune.py:964` |
@@ -241,6 +258,50 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 | 8 | Dataset cache stale | Clear `local_dataset_cache/` when config changes | Manual |
 | 9 | OOM with DeepSpeed | 1 GPU: No DeepSpeed + 8-bit optimizer | `finetune_...mahals.sh` |
 
+#### DPO Bugs (dpo.py, dpo_utils.py) — Fixed Jan 30, 2026
+
+| # | Error | Fix | File |
+|---|-------|-----|------|
+| 10 | Two dataset selection mechanisms (DPO) | `mixer_list` default → `None` | `dpo_utils.py:167` |
+| 11 | wandb API key error (DPO) | Added `wandb_enabled` guard | `dpo.py:229-232` |
+| 12 | HF repo_id namespace duplication | `hf_repo_id` → just repo name (not `entity/repo`) | YAML configs |
+
+**DPO Bug #10 Details:**
+```python
+# BEFORE:
+mixer_list: list[str] = field(default_factory=lambda: ["allenai/tulu-3-wildchat-..."])
+
+# AFTER:
+mixer_list: list[str] = field(default=None)  # MAHALS: same fix as finetune.py
+```
+
+**DPO Bug #11 Details:**
+```python
+# BEFORE:
+if args.with_tracking:
+    trainer_callbacks["wandb"] = callbacks.WandBCallback(...)
+
+# AFTER:
+wandb_enabled = args.with_tracking and (
+    "wandb" in args.report_to if isinstance(args.report_to, list) else args.report_to in ["wandb", "all"]
+)
+if wandb_enabled:
+    trainer_callbacks["wandb"] = callbacks.WandBCallback(...)
+```
+
+**Bug #12 Details (HF namespace duplication):**
+```yaml
+# BEFORE (caused HFValidationError):
+hf_entity: anonymousML123
+hf_repo_id: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS
+# Result: anonymousML123/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS ❌
+
+# AFTER:
+hf_entity: anonymousML123
+hf_repo_id: Llama-3.1-8B-Tulu10pct-SFT-MAHALS  # just repo name
+# Result: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS ✅
+```
+
 ---
 
 ### Key Configuration for 1 GPU vs 2 GPU vs 8 GPU
@@ -249,8 +310,10 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 |--------|----------------|------------------------|--------------|
 | DeepSpeed | ❌ No | ✅ ZeRO-3 | ✅ ZeRO-3 |
 | 8-bit Optimizer | ✅ true | ❌ false | ❌ false |
+| Batch Size | 2 | 2 | 2 |
+| Grad Accum | 64 (for eff=128) | 32 (for eff=128) | 8 (for eff=128) |
 | Validates | Data, loss, NaN | NCCL, sharding, sync | Full training |
-| TPS (tokens/sec) | ~2000 | ~2090 | ~6000-7000 (projected) |
+| TPS (tokens/sec) | ~2000 | ~4000 (proj) | ~9000-10000 (proj) |
 | Scaling Efficiency | - | baseline | ~75-85% expected |
 
 > **Toggle Checklist (before 2+ GPU):** ✅ DONE (Jan 30, 2026)
@@ -273,6 +336,131 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 | NCCL | No timeout | Communication healthy |
 
 **2 GPU DeepSpeed test PASSED** - Ready for 8 GPU full training.
+
+---
+
+### 8 GPU SFT Training Results (Jan 30, 2026) ✅ COMPLETE
+
+**Training Configuration:**
+
+| Parameter | Value |
+|-----------|-------|
+| GPUs | 8× A100 80GB |
+| Distributed | DeepSpeed ZeRO-3, NCCL backend |
+| Precision | BF16 |
+| per_device_train_batch_size | 1 |
+| gradient_accumulation_steps | 16 |
+| **Effective Batch Size** | 8 × 1 × 16 = **128** |
+| max_seq_length | 4096 |
+| learning_rate | 5e-6 |
+| num_train_epochs | 2 |
+| Total Steps | 1462 |
+
+**Dataset:**
+
+| Metric | Value |
+|--------|-------|
+| Source | allenai/tulu-3-sft-mixture |
+| Full Size | 939,343 samples |
+| MAHALS (10%) | 93,934 samples |
+
+**Loss Progression:**
+
+| Step | Loss | TPS (tokens/sec) | Notes |
+|------|------|------------------|-------|
+| 1 | 1.19 | 5,809 | Initial (warmup) |
+| 10 | 0.99 | 6,490 | -17% |
+| 50 | 0.86 | 6,588 | -28% |
+| 100 | 0.82 | 6,612 | -31% |
+| 500 | 0.71 | 6,649 | -40% |
+| 1000 | 0.56 | 6,649 | -53% |
+| **1462** | **0.32** | **6,650** | **-73% (final)** |
+
+**Performance Metrics:**
+
+| Metric | Value |
+|--------|-------|
+| Total Training Time | 5h 11m 22s |
+| Avg Time/Step | 12.8 sec |
+| Avg TPS | ~6,650 tokens/sec |
+| Total Tokens Processed | ~386M tokens |
+| GPU Memory (per GPU) | ~39-45 GB / 80 GB (~50%) |
+
+**Timeline:**
+
+| Event | Timestamp |
+|-------|-----------|
+| Training Start | 2026-01-30 03:30:33 |
+| Epoch 0 Checkpoint | 2026-01-30 06:06 |
+| Training End | 2026-01-30 08:41:55 |
+| HF Upload Complete | 2026-01-30 08:47 |
+
+---
+
+### HuggingFace Upload (Jan 30, 2026) ✅ COMPLETE
+
+**Model URL:** https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS
+
+| File | Size |
+|------|------|
+| pytorch_model-00001-of-00004.bin | 4.98 GB |
+| pytorch_model-00002-of-00004.bin | 5.00 GB |
+| pytorch_model-00003-of-00004.bin | 4.92 GB |
+| pytorch_model-00004-of-00004.bin | 1.17 GB |
+| tokenizer.json | 17.2 MB |
+| **Total** | **16.1 GB** |
+
+**Upload Stats:**
+
+| Metric | Value |
+|--------|-------|
+| Upload Speed | 85.6 MB/s |
+| Format | PyTorch .bin (BF16) |
+| Shards | 4 |
+
+**Comparison with AllenAI's Official Model:**
+
+| Model | Format | Size |
+|-------|--------|------|
+| allenai/Llama-3.1-Tulu-3-8B-SFT | safetensors | 16.07 GB |
+| **Our SFT model** | pytorch .bin | 16.06 GB |
+
+> **Note**: Same size because both use BF16 precision. 8B params × 2 bytes = 16 GB.
+
+---
+
+### Batch Size Optimization (Jan 30, 2026)
+
+**Problem**: GPU memory at ~45% utilization, burning $8/hr for 8× A100 80GB.
+
+**Solution**: Increase batch size from 1→2, reduce gradient accumulation 16→8 (same effective batch).
+
+| Config | Before (v1) | After (v2) | Change |
+|--------|-------------|------------|--------|
+| `per_device_train_batch_size` | 1 | 2 | +100% |
+| `gradient_accumulation_steps` | 16 | 8 | -50% |
+| **Effective Batch Size** | 8×1×16=128 | 8×2×8=128 | Same |
+
+**Memory Impact**:
+
+| GPU | Before | After (projected) | Headroom |
+|-----|--------|-------------------|----------|
+| Highest (GPU1) | 39 GB | ~58-60 GB | ~20 GB ✅ |
+| Lowest (GPU0) | 33 GB | ~52-54 GB | ~26 GB ✅ |
+
+**Speed & Cost Impact**:
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| SFT Time | ~5h | ~3.3h | 1.5x faster |
+| DPO Time | ~3h | ~2h | 1.5x faster |
+| Total Cost @ $8/hr | ~$64 | ~$42 | **~$22 saved** |
+
+**Files Modified**:
+- `configs/train_configs/mahals/llama31_8b_sft_10pct.yaml`
+- `configs/train_configs/mahals/llama31_8b_dpo_10pct.yaml`
+
+> **Note**: SFT run completed with batch=1 config (5h 11m). DPO will use batch=2 config (~2h expected).
 
 ---
 

@@ -932,8 +932,25 @@ def main(args: FlatArguments, tc: TokenizerConfig):
             accelerator.wait_for_everyone()
 
     if args.output_dir is not None:
+        # MAHALS: Prepare model card kwargs for HuggingFace README
+        model_card_kwargs = {
+            "model_name_or_path": args.model_name_or_path,
+            "hf_repo_id": args.hf_repo_id,
+            "exp_name": args.exp_name,
+            "method": "SFT",
+            "dataset_name": list(args.dataset_mixer.keys())[0] if args.dataset_mixer else None,
+            "dataset_fraction": list(args.dataset_mixer.values())[0] if args.dataset_mixer else 1.0,
+            "learning_rate": args.learning_rate,
+            "num_epochs": args.num_train_epochs,
+            "max_seq_length": args.max_seq_length,
+            "per_device_batch_size": args.per_device_train_batch_size,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
+            "num_gpus": accelerator.num_processes,
+        }
         save_with_accelerate(
-            accelerator, model, tokenizer, args.output_dir, args.use_lora, chat_template_name=tc.chat_template_name
+            accelerator, model, tokenizer, args.output_dir, args.use_lora,
+            chat_template_name=tc.chat_template_name,
+            model_card_kwargs=model_card_kwargs
         )
 
     # remove all checkpoints to save space

@@ -13,9 +13,10 @@ use_slow_tokenizer: true
 chat_template_name: tulu  # Required for chat format
 max_seq_length: 2048
 preprocessing_num_workers: 16
-per_device_train_batch_size: 1
-gradient_accumulation_steps: 16  # MAHALS: for 8 GPUs (8 x 1 x 16 = 128, same effective batch)
-# NOTE: For 1 GPU sanity test, change to 128 (1 x 1 x 128 = 128)
+per_device_train_batch_size: 2  # MAHALS: increased from 1 for faster training
+# gradient_accumulation_steps: 16  # MAHALS v1: for 8 GPUs (8 x 1 x 16 = 128)
+gradient_accumulation_steps: 8  # MAHALS v2: for 8 GPUs (8 x 2 x 8 = 128, same effective batch, ~1.5x faster)
+# NOTE: For 1 GPU sanity test, change to 64 (1 x 2 x 64 = 128)
 learning_rate: 5.0e-7
 lr_scheduler_type: linear
 warmup_ratio: 0.1
@@ -38,6 +39,6 @@ clean_checkpoints_at_end: false   # CRITICAL: Don't delete checkpoints after tra
 # Pattern: {Model}-{Size}-{Dataset}{Subset}-{Method}-{Project}
 push_to_hub: true
 hf_entity: anonymousML123  # for blind submission
-hf_repo_id: anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS
+hf_repo_id: Llama-3.1-8B-Tulu10pct-DPO-MAHALS  # MAHALS: just repo name (hf_entity provides namespace)
 exp_name: Llama-3.1-8B-Tulu10pct-DPO-MAHALS
 seed: 123

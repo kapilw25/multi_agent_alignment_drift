@@ -226,7 +226,11 @@ def _setup_callbacks(args: dpo_utils.ExperimentConfig, model):
         trainer_callbacks["slack"] = callbacks.SlackNotifierCallback(
             name=args.run_name or args.exp_name, webhook_url=slack_webhook_url
         )
-    if args.with_tracking:
+    # MAHALS: Only enable wandb if it's in report_to (same fix as finetune.py:426)
+    wandb_enabled = args.with_tracking and (
+        "wandb" in args.report_to if isinstance(args.report_to, list) else args.report_to in ["wandb", "all"]
+    )
+    if wandb_enabled:
         trainer_callbacks["wandb"] = callbacks.WandBCallback(
             name=args.run_name or args.exp_name,
             project=args.wandb_project,
@@ -250,6 +254,26 @@ def _handle_post_training(
     """Save HF model, copy to beaker, launch evals, push to hub."""
     hf_model_path = os.path.join(args.output_dir, "hf_model")
     export_to_hf(model, model_config, tokenizer, hf_model_path, args.model_name_or_path, is_main_process)
+
+    # MAHALS: Generate model card for HuggingFace README
+    if is_main_process:
+        dataset_name = list(args.dataset_mixer.keys())[0] if args.dataset_mixer else None
+        dataset_fraction = list(args.dataset_mixer.values())[0] if args.dataset_mixer else 1.0
+        model_utils.generate_model_card(
+            output_dir=hf_model_path,
+            model_name_or_path=args.model_name_or_path,
+            hf_repo_id=args.hf_repo_id,
+            exp_name=args.exp_name,
+            method="DPO",
+            dataset_name=dataset_name,
+            dataset_fraction=dataset_fraction,
+            learning_rate=args.learning_rate,
+            num_epochs=args.num_epochs,
+            max_seq_length=args.max_seq_length,
+            per_device_batch_size=args.per_device_train_batch_size,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
+            num_gpus=8,  # Default for DPO
+        )
 
     if distributed_utils.is_distributed():
         dist.barrier()

@@ -10,11 +10,12 @@ dataset_mixer:
     # allenai/tulu-3-sft-mixture: 1.0  # ORIGINAL: 100% = 939K samples
     allenai/tulu-3-sft-mixture: 0.1  # MAHALS: 10% = ~94K samples (saves ~90% compute)
 preprocessing_num_workers: 128
-per_device_train_batch_size: 1
+per_device_train_batch_size: 2  # MAHALS: increased from 1 for faster training
 use_8bit_optimizer: false  # MAHALS: must be false for DeepSpeed ZeRO-3 (2+ GPUs)
 # gradient_accumulation_steps: 2  # ORIGINAL: for 64 GPUs (64 x 1 x 2 = 128)
-gradient_accumulation_steps: 16  # MAHALS: for 8 GPUs (8 x 1 x 16 = 128, same effective batch)
-# NOTE: For 1 GPU sanity test, change to 128 (1 x 1 x 128 = 128)
+# gradient_accumulation_steps: 16  # MAHALS v1: for 8 GPUs (8 x 1 x 16 = 128)
+gradient_accumulation_steps: 8  # MAHALS v2: for 8 GPUs (8 x 2 x 8 = 128, same effective batch, ~1.5x faster)
+# NOTE: For 1 GPU sanity test, change to 64 (1 x 2 x 64 = 128)
 learning_rate: 5.0e-06 # best LR so far
 max_seq_length: 4096  # Restored - seq_length doesn't affect optimizer OOM
 lr_scheduler_type: linear
@@ -37,6 +38,6 @@ dataset_mix_dir: output/mahals_llama31_8b_sft_10pct  # MAHALS: match output_dir
 # Pattern: {Model}-{Size}-{Dataset}{Subset}-{Method}-{Project}
 push_to_hub: true
 hf_entity: anonymousML123  # for blind submission
-hf_repo_id: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS
+hf_repo_id: Llama-3.1-8B-Tulu10pct-SFT-MAHALS  # MAHALS: just repo name (hf_entity provides namespace)
 exp_name: Llama-3.1-8B-Tulu10pct-SFT-MAHALS
 seed: 123

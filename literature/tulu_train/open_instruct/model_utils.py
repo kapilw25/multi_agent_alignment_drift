@@ -472,6 +472,159 @@ def get_olmo3_generation_config(tokenizer):
     )
 
 
+def generate_model_card(
+    output_dir: str,
+    model_name_or_path: str = "meta-llama/Llama-3.1-8B",
+    hf_repo_id: str | None = None,
+    exp_name: str | None = None,
+    method: str = "SFT",
+    dataset_name: str | None = None,
+    dataset_fraction: float = 1.0,
+    learning_rate: float = 5e-6,
+    num_epochs: int = 2,
+    max_seq_length: int = 4096,
+    per_device_batch_size: int = 1,
+    gradient_accumulation_steps: int = 16,
+    num_gpus: int = 8,
+) -> None:
+    """MAHALS: Generate README.md model card for HuggingFace Hub."""
+    import os
+
+    effective_batch_size = per_device_batch_size * gradient_accumulation_steps * num_gpus
+    dataset_pct = int(dataset_fraction * 100)
+
+    # Determine tags and method-specific content
+    if method.upper() == "DPO":
+        tags = "- llama\n- dpo\n- tulu\n- mahals\n- alignment\n- preference-learning"
+        method_full = "Direct Preference Optimization (DPO)"
+    else:
+        tags = "- llama\n- sft\n- tulu\n- mahals\n- alignment"
+        method_full = "Supervised Fine-Tuning (SFT)"
+
+    readme_content = f'''---
+license: llama3.1
+base_model: {model_name_or_path}
+library_name: transformers
+tags:
+{tags}
+datasets:
+- {dataset_name or "allenai/tulu-3-sft-mixture"}
+language:
+- en
+pipeline_tag: text-generation
+---
+
+# {exp_name or hf_repo_id or "MAHALS Model"}
+
+{method_full} model trained on {dataset_pct}% of the Tulu-3 mixture for the MAHALS research project.
+
+## Model Details
+
+| Attribute | Value |
+|-----------|-------|
+| **Base Model** | [{model_name_or_path}](https://huggingface.co/{model_name_or_path}) |
+| **Training Method** | {method_full} |
+| **Dataset** | [{dataset_name}](https://huggingface.co/datasets/{dataset_name}) ({dataset_pct}%) |
+| **Framework** | [allenai/open-instruct](https://github.com/allenai/open-instruct) |
+| **License** | [Llama 3.1 Community License](https://llama.meta.com/llama3_1/license/) |
+
+## Inference Requirements
+
+| Precision | VRAM Required | Compatible GPUs |
+|-----------|---------------|-----------------|
+| BF16/FP16 | ~20 GB | A100 40GB, RTX 4090/3090, A10 |
+| INT8 | ~10 GB | T4, RTX 3080 |
+| INT4 | ~6 GB | RTX 3060, consumer GPUs |
+
+## Usage
+
+### Transformers
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+model_id = "{hf_repo_id or exp_name}"
+
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    torch_dtype=torch.bfloat16,
+    device_map="auto"
+)
+
+messages = [{{"role": "user", "content": "What is machine learning?"}}]
+
+input_ids = tokenizer.apply_chat_template(messages, return_tensors="pt").to(model.device)
+outputs = model.generate(input_ids, max_new_tokens=256)
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+### vLLM Serving
+
+```bash
+vllm serve {hf_repo_id or exp_name} --max_model_len={max_seq_length}
+```
+
+## Chat Template
+
+This model uses the Tulu chat template:
+
+```
+<|user|>
+Your question here
+<|assistant|>
+Model response<|endoftext|>
+```
+
+## Training Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Learning Rate | {learning_rate} |
+| Effective Batch Size | {effective_batch_size} |
+| Gradient Accumulation | {gradient_accumulation_steps} |
+| Max Sequence Length | {max_seq_length} |
+| Epochs | {num_epochs} |
+| LR Schedule | Linear |
+| Warmup Ratio | 0.03 |
+| Optimizer | AdamW |
+| Precision | BF16 |
+
+## Intended Use
+
+This model is intended for research on multi-agent alignment and instruction following.
+It is part of the MAHALS (Multi-Agent Hierarchical Alignment) research project.
+
+## Limitations
+
+- Trained on {dataset_pct}% of data (reduced capability vs full Tulu-3)
+- English only
+- May exhibit biases present in training data
+- Not suitable for production without further evaluation
+
+## Citation
+
+```bibtex
+@misc{{mahals2026,
+  title={{MAHALS: Multi-Agent Hierarchical Alignment}},
+  author={{Anonymous}},
+  year={{2026}},
+  note={{Under review}}
+}}
+```
+
+## Acknowledgments
+
+Built using [AllenAI's open-instruct](https://github.com/allenai/open-instruct) framework.
+'''
+
+    readme_path = os.path.join(output_dir, "README.md")
+    with open(readme_path, "w") as f:
+        f.write(readme_content)
+    logger.info(f"📝 Generated model card at {readme_path}")
+
+
 def save_with_accelerate(
     accelerator: Accelerator,
     model: torch.nn.Module,
@@ -480,6 +633,7 @@ def save_with_accelerate(
     use_lora: bool = False,
     model_attribute_to_save: str | None = None,
     chat_template_name: str = "tulu",
+    model_card_kwargs: dict | None = None,
 ) -> None:
     """`model_attribute_to_save` is for used to save PPO's policy instead of the full model"""
     # set the generation config to an empty setting to be safe.
@@ -531,7 +685,9 @@ def save_with_accelerate(
 
     if accelerator.is_main_process:
         tokenizer.save_pretrained(output_dir)
-    # customize model card (TODO (Costa): this can be prettier)
+        # MAHALS: Generate model card if kwargs provided
+        if model_card_kwargs is not None:
+            generate_model_card(output_dir=output_dir, **model_card_kwargs)
 
 
 @torch.compile(dynamic=True)

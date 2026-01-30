@@ -164,7 +164,7 @@ class TrainingConfig:
 class DatasetConfig:
     """Configuration for dataset loading and processing."""
 
-    mixer_list: list[str] = field(default_factory=lambda: ["allenai/tulu-3-wildchat-reused-on-policy-8b", "1.0"])
+    mixer_list: list[str] = field(default=None)  # MAHALS: Changed from default dataset to None (same fix as finetune.py)
     """A list of datasets (local or HF) to sample from."""
     mixer_list_splits: list[str] = field(default_factory=lambda: ["train"])
     """The dataset splits to use for training"""
