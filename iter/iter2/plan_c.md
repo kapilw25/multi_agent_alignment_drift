@@ -1,7 +1,7 @@
 # iter2 Plan C: MAHALS Training Commands
 
-> **Status**: 1 GPU Sanity Test PASSED (Jan 29, 2026)
-> **Date**: Jan 27, 2026 (updated Jan 29, 2026)
+> **Status**: 2 GPU DeepSpeed Test PASSED (Jan 30, 2026)
+> **Date**: Jan 27, 2026 (updated Jan 30, 2026)
 
 ---
 
@@ -46,7 +46,7 @@ tmux # very important incase your local machine lose connection [happens frequen
 # Step 1: SFT Training
 
 # sanity (1 GPU) - validates: data loading, loss decrease, no NaN
-sh scripts/finetune_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_training.log
+sh scripts/finetune_with_accelerate_config_mahals.sh 1 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee logs/sft_1gpu_test.log
 
 # ⚠️ BEFORE 2+ GPU: Edit YAML config to disable 8-bit optimizer (incompatible with DeepSpeed)
 #    In configs/train_configs/mahals/llama31_8b_sft_10pct.yaml:
@@ -250,13 +250,31 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 | DeepSpeed | ❌ No | ✅ ZeRO-3 | ✅ ZeRO-3 |
 | 8-bit Optimizer | ✅ true | ❌ false | ❌ false |
 | Validates | Data, loss, NaN | NCCL, sharding, sync | Full training |
-| Cost | ~$2 | ~$5 | ~$100+ |
+| TPS (tokens/sec) | ~2000 | ~2090 | ~6000-7000 (projected) |
+| Scaling Efficiency | - | baseline | ~75-85% expected |
 
-> **Toggle Checklist (before 2+ GPU):**
+> **Toggle Checklist (before 2+ GPU):** ✅ DONE (Jan 30, 2026)
 > ```yaml
-> # In llama31_8b_sft_10pct.yaml and llama31_8b_dpo_10pct.yaml:
-> use_8bit_optimizer: false  # Change from true → false
+> # In llama31_8b_sft_10pct.yaml:
+> use_8bit_optimizer: false  # Changed from true → false
 > ```
+
+### 2 GPU DeepSpeed Test Results (Jan 30, 2026)
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Distributed | `DistributedType.DEEPSPEED Backend: nccl` | ZeRO-3 active |
+| Steps Completed | 64 | Stopped manually (Ctrl+C) |
+| Loss | 1.178 → 0.757 | ~37% reduction ✅ |
+| Avg TPS | 2090 tokens/sec | Good throughput |
+| Time/Step | ~10 sec | ~16h for full run |
+| Total Steps | 5844 | 2 epochs × 10% data |
+| Memory | No OOM | Fits in 2×80GB |
+| NCCL | No timeout | Communication healthy |
+
+**2 GPU DeepSpeed test PASSED** - Ready for 8 GPU full training.
+
+---
 
 ### 2 GPU Test: What to Look For
 

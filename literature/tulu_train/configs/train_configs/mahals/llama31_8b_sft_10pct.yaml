@@ -11,7 +11,7 @@ dataset_mixer:
     allenai/tulu-3-sft-mixture: 0.1  # MAHALS: 10% = ~94K samples (saves ~90% compute)
 preprocessing_num_workers: 128
 per_device_train_batch_size: 1
-use_8bit_optimizer: true  # MAHALS: reduces optimizer memory ~75% for 1 GPU (disable for 8 GPU)
+use_8bit_optimizer: false  # MAHALS: must be false for DeepSpeed ZeRO-3 (2+ GPUs)
 # gradient_accumulation_steps: 2  # ORIGINAL: for 64 GPUs (64 x 1 x 2 = 128)
 gradient_accumulation_steps: 16  # MAHALS: for 8 GPUs (8 x 1 x 16 = 128, same effective batch)
 # NOTE: For 1 GPU sanity test, change to 128 (1 x 1 x 128 = 128)
