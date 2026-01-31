@@ -289,6 +289,251 @@ def plot_axiom_breakdown(
     return fig
 
 
+def plot_steering_delta_bars(
+    summary_path: str,
+    output_path: Optional[str] = None,
+    figsize: tuple = (10, 6),
+) -> plt.Figure:
+    """
+    Create horizontal bar chart showing AQI delta (λ=1 - λ=0) for each model.
+    Green = positive + monotonic, light green = positive non-monotonic, red = negative.
+
+    Args:
+        summary_path: Path to phase3_summary.json
+        output_path: Path to save figure (optional)
+        figsize: Figure size tuple
+
+    Returns:
+        matplotlib Figure object
+    """
+    with open(summary_path) as f:
+        data = json.load(f)
+
+    # Extract and sort by delta descending
+    models = [(d["model_key"], d["delta"], d["is_monotonic"]) for d in data["summary"]]
+    models.sort(key=lambda x: x[1], reverse=True)
+
+    names = [m[0] for m in models]
+    deltas = [m[1] for m in models]
+    monotonic = [m[2] for m in models]
+
+    # Colors: dark green (positive+monotonic), light green (positive), red (negative)
+    colors = []
+    for d, m in zip(deltas, monotonic):
+        if d > 0 and m:
+            colors.append('#27ae60')  # Dark green
+        elif d > 0:
+            colors.append('#82e0aa')  # Light green
+        else:
+            colors.append('#e74c3c')  # Red
+
+    fig, ax = plt.subplots(figsize=figsize)
+    bars = ax.barh(names, deltas, color=colors, edgecolor='black', linewidth=0.5)
+
+    # Add value labels
+    for bar, delta, mono in zip(bars, deltas, monotonic):
+        width = bar.get_width()
+        label = f'{delta:+.1f}'
+        if mono and delta > 0:
+            label += ' *'
+        x_pos = width + 0.5 if width >= 0 else width - 0.5
+        ha = 'left' if width >= 0 else 'right'
+        ax.text(x_pos, bar.get_y() + bar.get_height()/2, label,
+                va='center', ha=ha, fontsize=11, fontweight='bold')
+
+    ax.axvline(x=0, color='black', linewidth=1)
+    ax.set_xlabel('AQI Delta (λ=1 - λ=0)', fontsize=12)
+    ax.set_title('D-STEER Validation: AQI Improvement\n(* = Monotonic Increase)', fontsize=14, fontweight='bold')
+    ax.set_xlim(-20, 30)
+    ax.grid(axis='x', alpha=0.3)
+
+    # Legend - inside plot, upper right corner (empty area above negative bars)
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#27ae60', edgecolor='black', label='Positive + Monotonic'),
+        Patch(facecolor='#82e0aa', edgecolor='black', label='Positive (non-monotonic)'),
+        Patch(facecolor='#e74c3c', edgecolor='black', label='Negative (degradation)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=9, framealpha=0.95)
+
+    plt.tight_layout()
+
+    if output_path:
+        fig.savefig(output_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {output_path}")
+
+    return fig
+
+
+def plot_steering_combined(
+    output_dir: str,
+    output_path: Optional[str] = None,
+    layout: str = "focus_bar",
+) -> plt.Figure:
+    """
+    Combined figure: individual AQI vs lambda LINE plots + delta BAR chart.
+
+    Layouts:
+      - "focus_bar": Large bar chart (right) + small line plots (left 2x3 grid)
+      - "grid_7": 7 subplots (6 lines + 1 bar) in 2 rows
+      - "vertical": Bar on top, lines below in 2x3
+
+    Args:
+        output_dir: Phase 3 output directory containing model subdirs + phase3_summary.json
+        output_path: Path to save figure (optional)
+        layout: Layout style ("focus_bar", "grid_7", "vertical")
+
+    Returns:
+        matplotlib Figure object
+    """
+    from pathlib import Path
+    output_dir = Path(output_dir)
+    summary_path = output_dir / "phase3_summary.json"
+
+    with open(summary_path) as f:
+        data = json.load(f)
+
+    # Sort by delta descending
+    summary = sorted(data["summary"], key=lambda x: x["delta"], reverse=True)
+    model_keys = [d["model_key"] for d in summary]
+    deltas = [d["delta"] for d in summary]
+    monotonic = [d["is_monotonic"] for d in summary]
+
+    # Colors for bar chart
+    bar_colors = []
+    for d, m in zip(deltas, monotonic):
+        if d > 0 and m:
+            bar_colors.append('#27ae60')
+        elif d > 0:
+            bar_colors.append('#82e0aa')
+        else:
+            bar_colors.append('#e74c3c')
+
+    # Line colors matching bar order
+    line_colors = plt.cm.tab10(np.linspace(0, 1, len(model_keys)))
+    model_color_map = {k: c for k, c in zip(model_keys, line_colors)}
+
+    if layout == "focus_bar":
+        # Layout: Bar chart prominent on right (60%), lines on left (40%)
+        fig = plt.figure(figsize=(16, 10))
+        gs = fig.add_gridspec(3, 4, width_ratios=[1, 1, 1.5, 1.5], hspace=0.35, wspace=0.3)
+
+        # Bar chart spans right 2 columns, all 3 rows
+        ax_bar = fig.add_subplot(gs[:, 2:])
+
+        # Line plots in left 2 columns (2x3 grid → actually 3x2)
+        line_axes = []
+        for i in range(3):
+            for j in range(2):
+                ax = fig.add_subplot(gs[i, j])
+                line_axes.append(ax)
+
+    elif layout == "grid_7":
+        # Layout: 2 rows - top row has 4 plots, bottom row has 3 (bar is larger)
+        fig = plt.figure(figsize=(18, 8))
+        gs = fig.add_gridspec(2, 4, height_ratios=[1, 1.2], hspace=0.3, wspace=0.25)
+
+        line_axes = []
+        # Top row: 4 line plots
+        for j in range(4):
+            ax = fig.add_subplot(gs[0, j])
+            line_axes.append(ax)
+        # Bottom row: 2 line plots + bar chart (spans 2 cols)
+        for j in range(2):
+            ax = fig.add_subplot(gs[1, j])
+            line_axes.append(ax)
+        ax_bar = fig.add_subplot(gs[1, 2:])
+
+    else:  # vertical
+        # Layout: Bar on top, lines below in 2x3 grid
+        fig = plt.figure(figsize=(14, 12))
+        gs = fig.add_gridspec(3, 3, height_ratios=[1.2, 1, 1], hspace=0.3, wspace=0.25)
+
+        # Bar spans top row
+        ax_bar = fig.add_subplot(gs[0, :])
+
+        # Lines in bottom 2 rows (2x3)
+        line_axes = []
+        for i in range(1, 3):
+            for j in range(3):
+                ax = fig.add_subplot(gs[i, j])
+                line_axes.append(ax)
+
+    # --- Plot individual line charts ---
+    for idx, model_key in enumerate(model_keys):
+        if idx >= len(line_axes):
+            break
+        ax = line_axes[idx]
+
+        # Load lambda results
+        model_data = next(d for d in summary if d["model_key"] == model_key)
+        lambdas = sorted([float(k) for k in model_data["all_lambdas"].keys()])
+        aqi_scores = [model_data["all_lambdas"][str(l)] for l in lambdas]
+
+        # Determine color based on delta
+        delta = model_data["delta"]
+        is_mono = model_data["is_monotonic"]
+        if delta > 0 and is_mono:
+            color = '#27ae60'
+        elif delta > 0:
+            color = '#82e0aa'
+        else:
+            color = '#e74c3c'
+
+        ax.plot(lambdas, aqi_scores, 'o-', linewidth=2, markersize=5, color=color)
+        ax.fill_between(lambdas, aqi_scores, alpha=0.2, color=color)
+        ax.axhline(y=aqi_scores[0], color='gray', linestyle='--', alpha=0.4, linewidth=1)
+        ax.axhline(y=aqi_scores[-1], color='blue', linestyle='--', alpha=0.4, linewidth=1)
+
+        # Title with delta
+        title = f"{model_key}\nΔ={delta:+.1f}"
+        if is_mono and delta > 0:
+            title += " *"
+        ax.set_title(title, fontsize=10, fontweight='bold')
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(0, 100)
+        ax.set_xlabel('λ', fontsize=9)
+        ax.set_ylabel('AQI', fontsize=9)
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(labelsize=8)
+
+    # --- Plot bar chart ---
+    bars = ax_bar.barh(model_keys, deltas, color=bar_colors, edgecolor='black', linewidth=0.5)
+
+    for bar, delta, mono in zip(bars, deltas, monotonic):
+        width = bar.get_width()
+        label = f'{delta:+.1f}'
+        if mono and delta > 0:
+            label += ' *'
+        x_pos = width + 0.5 if width >= 0 else width - 0.5
+        ha = 'left' if width >= 0 else 'right'
+        ax_bar.text(x_pos, bar.get_y() + bar.get_height()/2, label,
+                    va='center', ha=ha, fontsize=11, fontweight='bold')
+
+    ax_bar.axvline(x=0, color='black', linewidth=1)
+    ax_bar.set_xlabel('AQI Delta (λ=1 - λ=0)', fontsize=12)
+    ax_bar.set_title('D-STEER: AQI Improvement (* = Monotonic)', fontsize=13, fontweight='bold')
+    ax_bar.set_xlim(-20, 30)
+    ax_bar.grid(axis='x', alpha=0.3)
+
+    # Legend for bar chart - inside plot, upper right corner
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#27ae60', edgecolor='black', label='Positive + Monotonic'),
+        Patch(facecolor='#82e0aa', edgecolor='black', label='Positive (non-monotonic)'),
+        Patch(facecolor='#e74c3c', edgecolor='black', label='Negative (degradation)'),
+    ]
+    ax_bar.legend(handles=legend_elements, loc='upper right', fontsize=9, framealpha=0.95)
+
+    fig.suptitle('Phase 3: Same-Architecture Steering Validation', fontsize=14, fontweight='bold', y=0.98)
+
+    if output_path:
+        fig.savefig(output_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {output_path}")
+
+    return fig
+
+
 def create_all_plots(output_dir: str) -> Dict[str, str]:
     """
     Create all standard AQI plots and save to output directory.
