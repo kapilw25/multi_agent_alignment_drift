@@ -592,9 +592,11 @@ cd /workspace/multi_agent_alignment_drift
 source venv_alignment/bin/activate  # or appropriate venv
 
 # Sanity test (~1-2 hrs)
+tmux
 python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_MAHALS 2>&1 | tee logs/phase3_mahals_sanity.log
 
 # Full test (~5-8 hrs)
+tmux
 python -u src/p03_same_arch_validation.py --mode full --models Llama31_MAHALS 2>&1 | tee logs/phase3_mahals_full.log
 ```
 

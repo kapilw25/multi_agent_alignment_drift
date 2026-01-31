@@ -40,7 +40,7 @@ setup_base() {
     # Create virtual environment
     if [ ! -d "venv_Agnt_Algnmt" ]; then
         echo "Creating virtual environment..."
-        python3 -m venv venv_Agnt_Algnmt
+        python3.12 -m venv venv_Agnt_Algnmt
     else
         echo "Virtual environment already exists"
     fi

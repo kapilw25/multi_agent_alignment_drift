@@ -1,0 +1,8 @@
+{
+  "model_key": "Llama31_MAHALS",
+  "lambda": 0.0,
+  "aqi_score": 31.206501779489034,
+  "chi_norm": 52.41300355897807,
+  "xb_norm": 10.0,
+  "n_samples": 7000
+}

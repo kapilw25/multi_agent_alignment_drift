@@ -1,0 +1,15 @@
+{
+  "model_key": "Llama31_MAHALS",
+  "display_name": "Llama-3.1-MAHALS-8B",
+  "base_model": "anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS",
+  "instruct_model": "anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS",
+  "num_samples": 1000,
+  "num_layers": 32,
+  "hidden_dim": 4096,
+  "batch_size": 4,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.9425048828125,
+  "mean_cosine_sim_rejected": 0.945556640625,
+  "timestamp": "2026-01-31T18:07:40.317272"
+}
