@@ -1,5 +1,6 @@
 # model_name_or_path: allenai/Llama-3.1-Tulu-3-8B-SFT  # ORIGINAL: AllenAI's official SFT
-model_name_or_path: output/mahals_llama31_8b_sft_10pct  # MAHALS: use OUR SFT model from Step 1
+# model_name_or_path: output/mahals_llama31_8b_sft_10pct  # LOCAL: use if SFT just completed
+model_name_or_path: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS  # MAHALS: HuggingFace (for fresh GPU instances)
 model_revision: main
 use_flash_attn: true
 gradient_checkpointing: true
@@ -8,14 +9,15 @@ dataset_mixer:
     # allenai/llama-3.1-tulu-3-8b-preference-mixture: 1.0  # ORIGINAL: 100% preference data
     allenai/llama-3.1-tulu-3-8b-preference-mixture: 0.1  # MAHALS: 10% = saves ~90% compute
 # tokenizer_name: allenai/Llama-3.1-Tulu-3-8B-SFT  # ORIGINAL
-tokenizer_name: output/mahals_llama31_8b_sft_10pct  # MAHALS: use OUR SFT tokenizer
+# tokenizer_name: output/mahals_llama31_8b_sft_10pct  # LOCAL: use if SFT just completed
+tokenizer_name: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS  # MAHALS: HuggingFace
 use_slow_tokenizer: true
 chat_template_name: tulu  # Required for chat format
 max_seq_length: 2048
 preprocessing_num_workers: 16
-per_device_train_batch_size: 2  # MAHALS: increased from 1 for faster training
-# gradient_accumulation_steps: 16  # MAHALS v1: for 8 GPUs (8 x 1 x 16 = 128)
-gradient_accumulation_steps: 8  # MAHALS v2: for 8 GPUs (8 x 2 x 8 = 128, same effective batch, ~1.5x faster)
+per_device_train_batch_size: 1  # DPO needs 2 models (policy+ref) → half batch vs SFT
+gradient_accumulation_steps: 16  # for 8 GPUs (8 x 1 x 16 = 128) - matches official Tulu3
+# NOTE: batch=2 causes OOM on DPO (Bug #30) - DO NOT increase
 # NOTE: For 1 GPU sanity test, change to 64 (1 x 2 x 64 = 128)
 learning_rate: 5.0e-7
 lr_scheduler_type: linear
@@ -33,7 +35,7 @@ loss_type: dpo_norm
 beta: 5
 checkpointing_steps: 1000
 keep_last_n_checkpoints: 3        # Keep last 3 checkpoints during training
-clean_checkpoints_at_end: false   # CRITICAL: Don't delete checkpoints after training!
+# clean_checkpoints_at_end: false   # NOT SUPPORTED in dpo.py (SFT-only param)
 
 # MAHALS: Auto-push to HuggingFace after training
 # Pattern: {Model}-{Size}-{Dataset}{Subset}-{Method}-{Project}

@@ -17,7 +17,9 @@ DPO tuning script. Adapted from our finetuning script.
 """
 
 # isort: off
+import ast
 import contextlib
+import pathlib
 import os
 
 os.environ["NCCL_CUMEM_ENABLE"] = "0"  # NOQA
@@ -119,7 +121,8 @@ def main(args: dpo_utils.ExperimentConfig, tc: TokenizerConfig):
     # in the environment
     accelerator_log_kwargs = {}
     if args.with_tracking:
-        accelerator_log_kwargs["log_with"] = "wandb"
+        # MAHALS: Use args.report_to instead of hardcoded "wandb" (fixes Bug #20)
+        accelerator_log_kwargs["log_with"] = args.report_to
         accelerator_log_kwargs["project_dir"] = args.output_dir
     # if you get timeouts (e.g. due to long tokenization) increase this.
     timeout_kwargs = InitProcessGroupKwargs(timeout=timedelta(seconds=args.timeout))
@@ -193,30 +196,42 @@ def main(args: dpo_utils.ExperimentConfig, tc: TokenizerConfig):
         # TensorBoard cannot log Enums, need the raw value
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"]
 
-        # (Optional) Ai2 internal tracking
-        if args.wandb_entity is None:
+        # (Optional) Ai2 internal tracking - MAHALS: only call if wandb is needed
+        wandb_needed = "wandb" in args.report_to if isinstance(args.report_to, list) else args.report_to in ["wandb", "all"]
+        if wandb_needed and args.wandb_entity is None:
             args.wandb_entity = maybe_use_ai2_wandb_entity()
         if accelerator.is_main_process and is_beaker_job():
             experiment_config.update(vars(beaker_config))
         experiment_config.update(vars(tc))
-        accelerator.init_trackers(
-            args.wandb_project,
-            experiment_config,
-            init_kwargs={
-                "wandb": {
-                    "name": args.exp_name,
-                    "entity": args.wandb_entity,
-                    "tags": [args.exp_name] + get_wandb_tags(),
-                }
-            },
-        )
+        # MAHALS: Sanitize for TensorBoard - only accepts int, float, str, bool (fixes Bug #21)
+        for key, value in list(experiment_config.items()):
+            if not isinstance(value, (int, float, str, bool)):
+                experiment_config[key] = str(value) if value is not None else "None"
+        # MAHALS: Only pass wandb init_kwargs if wandb is in report_to (fixes Bug #19)
+        if wandb_needed:
+            accelerator.init_trackers(
+                args.wandb_project,
+                experiment_config,
+                init_kwargs={
+                    "wandb": {
+                        "name": args.exp_name,
+                        "entity": args.wandb_entity,
+                        "tags": [args.exp_name] + get_wandb_tags(),
+                    }
+                },
+            )
+        else:
+            # TensorBoard-only: no wandb init_kwargs
+            accelerator.init_trackers(args.exp_name, experiment_config)
 
+    # MAHALS: Only get wandb tracker if wandb is actually being used (fixes Bug #19)
+    wandb_tracker = None
     if args.with_tracking:
-        wandb_tracker = accelerator.get_tracker("wandb")
-        if accelerator.is_main_process:
-            maybe_update_beaker_description(wandb_url=wandb_tracker.run.get_url())
-    else:
-        wandb_tracker = None
+        wandb_needed = "wandb" in args.report_to if isinstance(args.report_to, list) else args.report_to in ["wandb", "all"]
+        if wandb_needed:
+            wandb_tracker = accelerator.get_tracker("wandb")
+            if accelerator.is_main_process:
+                maybe_update_beaker_description(wandb_url=wandb_tracker.run.get_url())
 
     if accelerator.is_main_process:
         pprint([args, tc])
@@ -227,7 +242,8 @@ def main(args: dpo_utils.ExperimentConfig, tc: TokenizerConfig):
 
     # Make one log on every process with the configuration for debugging.
     logger_utils.setup_logger()
-    logger.info(accelerator.state, main_process_only=False)
+    # MAHALS: Use accelerator.print instead of logger.info with main_process_only (fixes Bug #19)
+    accelerator.print(accelerator.state)
     if accelerator.is_local_main_process:
         datasets.utils.logging.set_verbosity_warning()
         transformers.utils.logging.set_verbosity_info()
@@ -245,7 +261,24 @@ def main(args: dpo_utils.ExperimentConfig, tc: TokenizerConfig):
     accelerator.wait_for_everyone()
 
     if args.dataset_mixer is not None:
+        # MAHALS: Handle string from YAML parsing (fixes Bug #22, #23)
+        if isinstance(args.dataset_mixer, str):
+            args.dataset_mixer = ast.literal_eval(args.dataset_mixer)
         args.mixer_list = [item for pair in args.dataset_mixer.items() for item in pair]
+    # MAHALS: Parse stringified lists from YAML (fixes Bug #23)
+    if isinstance(args.mixer_list_splits, str):
+        args.mixer_list_splits = ast.literal_eval(args.mixer_list_splits)
+    if isinstance(args.transform_fn, str):
+        args.transform_fn = ast.literal_eval(args.transform_fn)
+    if isinstance(args.target_columns, str):
+        args.target_columns = ast.literal_eval(args.target_columns)
+    # MAHALS: Convert ALL 'None' strings to actual None (fixes Bug #24-28+)
+    for attr in dir(args):
+        if not attr.startswith('_') and getattr(args, attr) == 'None':
+            setattr(args, attr, None)
+    # MAHALS: Parse stringified dict (fixes Bug #25)
+    if isinstance(args.additional_model_arguments, str):
+        args.additional_model_arguments = ast.literal_eval(args.additional_model_arguments)
     with accelerator.main_process_first():
         transform_fn_args = [{"max_seq_length": args.max_seq_length}, {}]
         train_dataset = get_cached_dataset_tulu(
@@ -520,14 +553,19 @@ def main(args: dpo_utils.ExperimentConfig, tc: TokenizerConfig):
 
     # Cache the logprobs
     if args.loss_type.needs_reference_model:
+        # MAHALS: Fix function call to match dpo_utils.build_reference_logprobs_cache signature (Bug #29)
+        ref_cache_hash = dpo_utils.compute_reference_cache_hash(args, tc)
+        reference_cache_path = pathlib.Path(dpo_utils.REFERENCE_LOGPROBS_CACHE_PATH) / f"{ref_cache_hash}.pt"
         reference_cache = dpo_utils.build_reference_logprobs_cache(
             model=model,
             dataloader=train_dataloader,
-            accelerator=accelerator,
             average_log_prob=args.loss_type.is_average_loss,
             forward_fn=args.forward_fn,
             full_dataset_size=original_dataset_size,
-            reference_cache_hash=dpo_utils.compute_reference_cache_hash(args, tc),
+            device=accelerator.device,
+            cache_path=reference_cache_path,
+            is_main_process=accelerator.is_main_process,
+            model_dims=utils.ModelDims.from_hf_config(args.model_name_or_path),
             use_lora=args.use_lora,
         )
         logger.info("=============after cache logprobs")
@@ -740,6 +778,24 @@ def main(args: dpo_utils.ExperimentConfig, tc: TokenizerConfig):
             oe_eval_gpu_multiplier=args.oe_eval_gpu_multiplier,
         )
     if args.push_to_hub and accelerator.is_main_process:
+        # MAHALS: Generate model card (README.md) before pushing to HuggingFace
+        dataset_name = list(args.dataset_mixer.keys())[0] if args.dataset_mixer else None
+        dataset_fraction = list(args.dataset_mixer.values())[0] if args.dataset_mixer else 1.0
+        model_utils.generate_model_card(
+            output_dir=args.output_dir,
+            model_name_or_path=args.model_name_or_path,
+            hf_repo_id=args.hf_repo_id,
+            exp_name=args.exp_name,
+            method="DPO",
+            dataset_name=dataset_name,
+            dataset_fraction=dataset_fraction,
+            learning_rate=args.learning_rate,
+            num_epochs=args.num_epochs,
+            max_seq_length=args.max_seq_length,
+            per_device_batch_size=args.per_device_train_batch_size,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
+            num_gpus=accelerator.num_processes,
+        )
         model_utils.push_folder_to_hub(args.output_dir, args.hf_repo_id, args.hf_repo_revision)
     accelerator.wait_for_everyone()
     if args.with_tracking:
@@ -757,5 +813,5 @@ def print_gpu_stats(init_gpu_memory: int | None):
 
 if __name__ == "__main__":
     parser = ArgumentParserPlus((dpo_utils.ExperimentConfig, TokenizerConfig))
-    args, tc = parser.parse_args_into_dataclasses()
+    args, tc = parser.parse()  # MAHALS: changed from parse_args_into_dataclasses() for YAML support
     main(args, tc)

@@ -333,6 +333,10 @@ def main(args: dpo_utils.ExperimentConfig, tc: dataset_transformation.TokenizerC
     if utils.is_beaker_job():
         args.local_cache_dir = "/weka/oe-adapt-default/allennlp/deletable_open_instruct_dataset_cache"
 
+    # MAHALS: Convert dataset_mixer (dict) to mixer_list (list) - same as finetune.py:477-478
+    if args.dataset_mixer is not None:
+        args.mixer_list = [item for pair in args.dataset_mixer.items() for item in pair]
+
     transform_fn_args = [{"max_seq_length": args.max_seq_length}, {}]
     ref_cache_hash = dpo_utils.compute_reference_cache_hash(args, tc)
     reference_cache_path = pathlib.Path(dpo_utils.REFERENCE_LOGPROBS_CACHE_PATH) / f"{ref_cache_hash}.pt"

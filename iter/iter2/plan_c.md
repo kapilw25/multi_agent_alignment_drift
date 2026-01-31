@@ -1,18 +1,10 @@
 # iter2 Plan C: MAHALS Training Commands
 
-> **Status**: ✅ SFT COMPLETE & PUSHED TO HF | DPO Ready | Batch Size Optimized (Jan 30, 2026)
-> **Date**: Jan 27, 2026 (updated Jan 30, 2026)
+> **Status**: ✅ SFT COMPLETE | ✅ DPO COMPLETE | ✅ BOTH PUSHED TO HF | 🔜 Phase 3 Ready
+> **Date**: Jan 31, 2026
 >
-> **Progress**:
-> - ✅ SFT 1-GPU sanity test PASSED
-> - ✅ SFT 2-GPU DeepSpeed test PASSED
-> - ✅ SFT 8-GPU full training COMPLETE (5h 11m, batch=1)
-> - ✅ SFT model pushed to HuggingFace: [anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS)
-> - ✅ DPO bugs #10, #11, #12 fixed (ready to run)
-> - ✅ Batch size optimized: batch=2, grad_accum=8 (for DPO, ~1.5x faster)
 
 ---
-
 ## MAHALS Training Files
 
 | File | Purpose |
@@ -46,12 +38,15 @@ pip install -e .      # Pip fallback (if uv unavailable)
 ## Execution Commands (on GPU machine)
 
 ```bash
+tmux # very important incase your local machine lose connection [happens frequenty during long idle activity on local machine] to instance, though INstance is running in background
 cd literature/tulu_train
 source .venv/bin/activate
+huggingface-cli login --token <HF_TOKEN>
 mkdir -p logs
-tmux # very important incase your local machine lose connection [happens frequenty during long idle activity on local machine] to instance, though INstance is running in background
 rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*  
+```
 
+```bash
 # Step 1: SFT Training
 
 # sanity (1 GPU) - validates: data loading, loss decrease, no NaN
@@ -66,9 +61,11 @@ sh scripts/finetune_with_accelerate_config_mahals.sh 2 configs/train_configs/mah
 
 # full (8 GPUs) - only after 2 GPU test passes
 rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*  
-huggingface-cli login --token hf_***
+huggingface-cli login --token <HF_TOKEN>
 sh scripts/finetune_with_accelerate_config_mahals.sh 8 configs/train_configs/mahals/llama31_8b_sft_10pct.yaml 2>&1 | tee -a logs/sft_training.log  
+```
 
+```bash
 # Step 2: DPO Training (after SFT completes)
 rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/* 
 # sanity (1 GPU) - validates: data loading, loss decrease, no NaN
@@ -95,7 +92,7 @@ sh scripts/dpo_train_with_accelerate_config_mahals.sh 8 configs/train_configs/ma
 | Stage | Local Path | HuggingFace |
 |-------|------------|-------------|
 | SFT | `output/mahals_llama31_8b_sft_10pct` | [anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS) ✅ |
-| DPO | `output/mahals_llama31_8b_dpo_10pct` | [anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS) (pending) |
+| DPO | `output/mahals_llama31_8b_dpo_10pct` | [anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS](https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS) ✅ |
 
 ---
 
@@ -287,49 +284,28 @@ No manual intervention needed - open-instruct auto-detects checkpoints in `outpu
 | 8 | Dataset cache stale | Clear `local_dataset_cache/` when config changes | Manual |
 | 9 | OOM with DeepSpeed | 1 GPU: No DeepSpeed + 8-bit optimizer | `finetune_...mahals.sh` |
 
-#### DPO Bugs (dpo.py, dpo_utils.py) — Fixed Jan 30, 2026
+#### DPO Bugs (dpo.py, dpo_utils.py)
 
 | # | Error | Fix | File |
 |---|-------|-----|------|
-| 10 | Two dataset selection mechanisms (DPO) | `mixer_list` default → `None` | `dpo_utils.py:167` |
-| 11 | wandb API key error (DPO) | Added `wandb_enabled` guard | `dpo.py:229-232` |
-| 12 | HF repo_id namespace duplication | `hf_repo_id` → just repo name (not `entity/repo`) | YAML configs |
-
-**DPO Bug #10 Details:**
-```python
-# BEFORE:
-mixer_list: list[str] = field(default_factory=lambda: ["allenai/tulu-3-wildchat-..."])
-
-# AFTER:
-mixer_list: list[str] = field(default=None)  # MAHALS: same fix as finetune.py
-```
-
-**DPO Bug #11 Details:**
-```python
-# BEFORE:
-if args.with_tracking:
-    trainer_callbacks["wandb"] = callbacks.WandBCallback(...)
-
-# AFTER:
-wandb_enabled = args.with_tracking and (
-    "wandb" in args.report_to if isinstance(args.report_to, list) else args.report_to in ["wandb", "all"]
-)
-if wandb_enabled:
-    trainer_callbacks["wandb"] = callbacks.WandBCallback(...)
-```
-
-**Bug #12 Details (HF namespace duplication):**
-```yaml
-# BEFORE (caused HFValidationError):
-hf_entity: anonymousML123
-hf_repo_id: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS
-# Result: anonymousML123/anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS ❌
-
-# AFTER:
-hf_entity: anonymousML123
-hf_repo_id: Llama-3.1-8B-Tulu10pct-SFT-MAHALS  # just repo name
-# Result: anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS ✅
-```
+| 10 | Two dataset selection mechanisms | `mixer_list` default → `None` | `dpo_utils.py:167` |
+| 11 | wandb API key error (callback) | Added `wandb_enabled` guard | `dpo.py:229-232` |
+| 12 | HF repo_id namespace duplication | `hf_repo_id` → just repo name | YAML configs |
+| 13 | `clean_checkpoints_at_end` not recognized | Commented out (SFT-only param) | `llama31_8b_dpo_10pct.yaml` |
+| 14 | `dataset_mixer` dict→list missing | Added conversion like `finetune.py:477` | `dpo.py:335-337` |
+| 15 | wandb login unconditional (utils) | Guard `maybe_use_ai2_wandb_entity()` | `utils.py:1367-1372` |
+| 16 | `dpo.py` uses OLMo-only loading | Switch to `dpo_tune_cache.py` | `dpo_train_...mahals.sh` |
+| 17 | `dpo_tune_cache.py` needs YAML | `parse()` instead of `parse_args_into_dataclasses()` | `dpo_tune_cache.py:760` |
+| 18 | wandb login unconditional (dpo_tune) | Guard inside `with_tracking` block | `dpo_tune_cache.py:197-199` |
+| 19 | `init_trackers()` wandb + logger kwarg | (a) Guard wandb init_kwargs, (b) `accelerator.print()` vs `logger.info(main_process_only)` | `dpo_tune_cache.py:203-218,238` |
+| 20 | `log_with` hardcoded to "wandb" | Use `args.report_to` instead | `dpo_tune_cache.py:122` |
+| 21 | TensorBoard rejects list/dict/None | Sanitize `experiment_config` to str | `dpo_tune_cache.py:204-206` |
+| 22 | `dataset_mixer` is str not dict | `ast.literal_eval()` to parse | `dpo_tune_cache.py:264-265` |
+| 23 | `mixer_list_splits/transform_fn/target_columns` stringified | `ast.literal_eval()` for all list params | `dpo_tune_cache.py:268-273` |
+| 24-28 | ALL `'None'` strings from YAML | Generalized: `for attr in dir(args): if val == 'None': setattr(None)` | `dpo_tune_cache.py:274-277` |
+| 25 | `additional_model_arguments='{}'` string | `ast.literal_eval()` to parse dict | `dpo_tune_cache.py:278-279` |
+| 29 | `build_reference_logprobs_cache()` wrong params | Fix call signature: `device`, `cache_path`, `is_main_process`, `model_dims` | `dpo_tune_cache.py:555-568` |
+| 30 | OOM at step 2/844 (2GPU DPO) | DPO needs 2 models (policy+ref) → reduce `per_device_train_batch_size: 2→1`, `gradient_accumulation_steps: 8→16` | `llama31_8b_dpo_10pct.yaml` |
 
 ---
 
@@ -517,3 +493,121 @@ Hang at distributed barrier
 # Clear dataset cache when changing max_seq_length or tokenizer settings
 rm -rf /workspace/multi_agent_alignment_drift/literature/tulu_train/local_dataset_cache/*
 ```
+
+---
+
+### 2 GPU DPO Training Results (Jan 31, 2026) ✅ COMPLETE
+
+**Decision**: Ran full DPO on 2 GPUs instead of 8 GPUs.
+- **Rationale**: ~3h total, $6 cost vs $8, sufficient for MAHALS validation
+- **Trade-off**: Effective batch size = 32 (vs 128 on 8 GPUs) - acceptable for 10% subset
+
+**Training Configuration:**
+
+| Parameter | Value |
+|-----------|-------|
+| GPUs | 2× A100 80GB |
+| Distributed | DeepSpeed ZeRO-3, NCCL |
+| per_device_train_batch_size | 1 (Bug #30 fix) |
+| gradient_accumulation_steps | 16 |
+| **Effective Batch Size** | 2 × 1 × 16 = **32** |
+| max_seq_length | 2048 |
+| learning_rate | 5e-7 |
+| warmup_ratio | 0.1 (~84 steps) |
+| Total Steps | 844 |
+
+**Loss Progression (FINAL):**
+
+| Step | Loss | Δ from Initial | LR Phase |
+|------|------|----------------|----------|
+| 1 | 0.693 | baseline | Warmup start |
+| 52 | 0.690 | -0.4% | Warmup |
+| 103 | 0.634 | -8.6% | Peak LR (~5e-7) |
+| 197 | 0.521 | -24.9% | Decay |
+| 500 | ~0.45 | -35% | Decay |
+| 800 | ~0.40 | -42% | Near end |
+| **844** | **0.245** | **-64.6%** | **Final** |
+
+**Timeline:**
+
+| Event | Timestamp |
+|-------|-----------|
+| Training Start | 2026-01-30 23:54:39 |
+| Training End | 2026-01-31 02:59:42 |
+| **Total Time** | **3h 5m** |
+| HF Upload | 2026-01-31 03:15 (manual) |
+
+**Final Health Check:**
+
+| Check | Expected | Actual | Status |
+|-------|----------|--------|--------|
+| No OOM | Training completes | 844/844 (100%) | ✅ |
+| Loss initial | ~0.69 (log(2)) | 0.6933 | ✅ |
+| Loss final | < 0.5 | **0.245** | ✅ -64.6% |
+| No NaN | Numeric | All numeric | ✅ |
+| Model saved | Local + HF | Both complete | ✅ |
+
+**Verdict**: DPO training COMPLETE. Loss reduced 64.6% (0.693 → 0.245). Model uploaded to HuggingFace.
+
+---
+
+### HuggingFace Upload - DPO (Jan 31, 2026) ✅ COMPLETE
+
+**Model URL:** https://huggingface.co/anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS
+
+| File | Size |
+|------|------|
+| pytorch_model-00001-of-00004.bin | 4.98 GB |
+| pytorch_model-00002-of-00004.bin | 5.00 GB |
+| pytorch_model-00003-of-00004.bin | 4.92 GB |
+| pytorch_model-00004-of-00004.bin | 1.17 GB |
+| tokenizer.json | 17.2 MB |
+| README.md | ✅ |
+| **Total** | **16.1 GB** |
+
+---
+
+## Phase 3: Same-Architecture Validation (NEXT)
+
+### Model Registry Entry
+
+```json
+"Llama31_MAHALS": {
+  "base": "anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS",
+  "instruct": "anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS",
+  "display_name": "Llama-3.1-MAHALS-8B",
+  "hidden_dim": 4096,
+  "num_layers": 32,
+  "note": "Custom SFT→DPO pair (10% Tulu, Full FT)"
+}
+```
+
+**Verification:** ✅ Both models accessible on HuggingFace (config + tokenizer loadable)
+
+### Phase 3 Commands
+
+```bash
+# On 1x A100 80GB instance (inference only, no distributed needed)
+cd /workspace/multi_agent_alignment_drift
+source venv_alignment/bin/activate  # or appropriate venv
+
+# Sanity test (~1-2 hrs)
+python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_MAHALS 2>&1 | tee logs/phase3_mahals_sanity.log
+
+# Full test (~5-8 hrs)
+python -u src/p03_same_arch_validation.py --mode full --models Llama31_MAHALS 2>&1 | tee logs/phase3_mahals_full.log
+```
+
+### Expected Phase 3 Output
+
+- Steering vector: `outputs/phase2_steering_vectors/Llama31_MAHALS/steering_vector.pth`
+- AQI curves: `outputs/phase3_same_arch_validation/Llama31_MAHALS/aqi_vs_lambda.png`
+- Per-axiom analysis: `outputs/phase3_same_arch_validation/Llama31_MAHALS/per_axiom_curves.png`
+
+### Success Criteria
+
+| Metric | Target |
+|--------|--------|
+| AQI(λ=0) → AQI(λ=1) | Monotonic increase |
+| AQI improvement | > 5 points |
+| No errors | Complete run |

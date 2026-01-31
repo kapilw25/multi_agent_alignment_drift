@@ -1364,7 +1364,12 @@ def setup_experiment_paths(args, is_main_process: bool) -> BeakerRuntimeConfig |
             args.hf_repo_revision = args.exp_name
         args.hf_repo_url = f"https://huggingface.co/{args.hf_repo_id}/tree/{args.hf_repo_revision}"
 
-    if getattr(args, "wandb_entity", None) is None:
+    # MAHALS: Only call wandb login if wandb is actually needed (fixes Bug #15)
+    wandb_needed = getattr(args, "with_tracking", False) and (
+        "wandb" in getattr(args, "report_to", []) if isinstance(getattr(args, "report_to", []), list)
+        else getattr(args, "report_to", "") in ["wandb", "all"]
+    )
+    if wandb_needed and getattr(args, "wandb_entity", None) is None:
         args.wandb_entity = maybe_use_ai2_wandb_entity()
 
     return beaker_config
