@@ -391,9 +391,9 @@ class SteeringHook:
 # MODEL LOADING
 # =============================================================================
 
-def load_base_model(model_name: str, device: str = "cuda") -> Tuple:
-    """Load base model and tokenizer."""
-    print(f"  Loading base model: {model_name}")
+def load_sft_model(model_name: str, device: str = "cuda") -> Tuple:
+    """Load SFT model and tokenizer."""
+    print(f"  Loading SFT model: {model_name}")
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
@@ -794,7 +794,7 @@ def run_same_arch_validation(
 
         print(f"\n{'=' * 60}")
         print(f"Validating: {model_info['display_name']}")
-        print(f"Base Model: {model_info['base']}")
+        print(f"SFT Model: {model_info['sft']}")
         print(f"Lambda values: {config.lambda_values}")
         print(f"{'=' * 60}")
 
@@ -807,9 +807,9 @@ def run_same_arch_validation(
             print("\n[1/3] Loading steering vector...")
             steering_vector = load_steering_vector(model_key, config)
 
-            # Load base model
-            print("\n[2/3] Loading base model...")
-            model, tokenizer = load_base_model(model_info["base"])
+            # Load SFT model
+            print("\n[2/3] Loading SFT model...")
+            model, tokenizer = load_sft_model(model_info["sft"])
             print_gpu_memory()
 
             # Get batch size

@@ -1,73 +1,110 @@
 {
-  "description": "Model pairs for multi-agent alignment experiments (base + instruct)",
-  "version": "1.0",
+  "description": "SFT→DPO pairs for D-STEER multi-agent alignment experiments",
+  "version": "2.0",
   "models": {
-    "Mistral_7B": {
-      "base": "mistralai/Mistral-7B-v0.3",
-      "instruct": "mistralai/Mistral-7B-Instruct-v0.3",
-      "display_name": "Mistral-7B",
-      "hidden_dim": 4096,
-      "num_layers": 32
-    },
-    "Llama3_8B": {
-      "base": "meta-llama/Llama-3.1-8B",
-      "instruct": "meta-llama/Llama-3.1-8B-Instruct",
-      "display_name": "Llama-3.1-8B",
-      "hidden_dim": 4096,
-      "num_layers": 32
-    },
-    "Qwen2_7B": {
-      "base": "Qwen/Qwen2-7B",
-      "instruct": "Qwen/Qwen2-7B-Instruct",
-      "display_name": "Qwen2-7B",
-      "hidden_dim": 3584,
-      "num_layers": 28
-    },
-    "Gemma2_9B": {
-      "base": "google/gemma-2-9b",
-      "instruct": "google/gemma-2-9b-it",
-      "display_name": "Gemma-2-9B",
-      "hidden_dim": 3584,
-      "num_layers": 42
-    },
-    "Zephyr_7B": {
-      "base": "mistralai/Mistral-7B-v0.1",
-      "instruct": "HuggingFaceH4/zephyr-7b-beta",
-      "display_name": "Zephyr-7B",
-      "hidden_dim": 4096,
-      "num_layers": 32,
-      "note": "Zephyr is fine-tuned from Mistral v0.1"
-    },
-    "Falcon_7B": {
-      "base": "tiiuae/falcon-7b",
-      "instruct": "tiiuae/falcon-7b-instruct",
-      "display_name": "Falcon-7B",
-      "hidden_dim": 4544,
-      "num_layers": 32
-    },
     "Llama31_Tulu": {
-      "base": "allenai/Llama-3.1-Tulu-3-8B-SFT",
-      "instruct": "allenai/Llama-3.1-Tulu-3-8B-DPO",
+      "sft": "allenai/Llama-3.1-Tulu-3-8B-SFT",
+      "dpo": "allenai/Llama-3.1-Tulu-3-8B-DPO",
       "display_name": "Llama-3.1-Tulu-8B",
       "hidden_dim": 4096,
       "num_layers": 32,
-      "note": "D-STEER reference SFT→DPO pair (genuine alignment direction)"
+      "note": "D-STEER reference pair. VALIDATED (Δ=+21.8 monotonic)"
     },
     "Llama31_PKU_Custom": {
-      "base": "anonymousML123/llama3-8b-pku-SFT-NoInstruct-Baseline-NoInstruct",
-      "instruct": "anonymousML123/llama3-8b-pku-DPO-NoInstruct-SFT-NoInstruct",
+      "sft": "anonymousML123/llama3-8b-pku-SFT-NoInstruct-Baseline-NoInstruct",
+      "dpo": "anonymousML123/llama3-8b-pku-DPO-NoInstruct-SFT-NoInstruct",
       "display_name": "Llama-3.1-PKU-Custom",
       "hidden_dim": 4096,
       "num_layers": 32,
-      "note": "Custom SFT→DPO pair trained on PKU-SafeRLHF (12K samples, LoRA)"
+      "note": "LoRA pair, negative control. FAILED (Δ=-2.98)"
     },
     "Llama31_MAHALS": {
-      "base": "anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS",
-      "instruct": "anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS",
+      "sft": "anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS",
+      "dpo": "anonymousML123/Llama-3.1-8B-Tulu10pct-DPO-MAHALS",
       "display_name": "Llama-3.1-MAHALS-8B",
       "hidden_dim": 4096,
       "num_layers": 32,
-      "note": "Custom SFT→DPO pair (10% Tulu, Full FT)"
+      "note": "Full FT pair (10% Tulu). VALIDATED (Δ=+23.8 monotonic)"
+    },
+    "OLMo2_1B": {
+      "sft": "allenai/OLMo-2-0425-1B-SFT",
+      "dpo": "allenai/OLMo-2-0425-1B-DPO",
+      "display_name": "OLMo-2-1B",
+      "hidden_dim": 2048,
+      "num_layers": 16,
+      "note": "AllenAI, Tulu 3 recipe, Full FT"
+    },
+    "OLMo2_7B": {
+      "sft": "allenai/OLMo-2-1124-7B-SFT",
+      "dpo": "allenai/OLMo-2-1124-7B-DPO",
+      "display_name": "OLMo-2-7B",
+      "hidden_dim": 4096,
+      "num_layers": 32,
+      "note": "AllenAI, Tulu 3 recipe, Full FT"
+    },
+    "OLMoE_Tulu": {
+      "sft": "allenai/OLMoE-1B-7B-0125-SFT",
+      "dpo": "allenai/OLMoE-1B-7B-0125-DPO",
+      "display_name": "OLMoE-1B-7B",
+      "hidden_dim": 2048,
+      "num_layers": 16,
+      "note": "MoE (64 experts, 8 active), 1B active / 7B total, Full FT"
+    },
+    "OLMo3_7B": {
+      "sft": "allenai/Olmo-3-7B-Instruct-SFT",
+      "dpo": "allenai/Olmo-3-7B-Instruct-DPO",
+      "display_name": "OLMo-3-7B",
+      "hidden_dim": 4096,
+      "num_layers": 32,
+      "note": "AllenAI, Dolci recipe, Full FT"
+    },
+    "Zephyr_SFT_DPO": {
+      "sft": "alignment-handbook/zephyr-7b-sft-full",
+      "dpo": "HuggingFaceH4/zephyr-7b-beta",
+      "display_name": "Zephyr-7B-SFT-DPO",
+      "hidden_dim": 4096,
+      "num_layers": 32,
+      "note": "HuggingFace, UltraChat→UltraFeedback, Full FT"
+    },
+    "Phi2_SFT_DPO": {
+      "sft": "lxuechen/phi-2-sft",
+      "dpo": "lxuechen/phi-2-dpo",
+      "display_name": "Phi-2-SFT-DPO",
+      "hidden_dim": 2560,
+      "num_layers": 32,
+      "note": "Stanford, parallel attn+MLP arch, Full FT"
+    },
+    "Gemma7B_SFT_DPO": {
+      "sft": "lewtun/gemma-7b-sft-full-deita-10k-v0",
+      "dpo": "lewtun/gemma-7b-dpo-full-mix1-beta-0.05-epoch-3",
+      "display_name": "Gemma-7B-SFT-DPO",
+      "hidden_dim": 3072,
+      "num_layers": 28,
+      "note": "HuggingFace (lewtun), deita+dpo-mix, Full FT"
+    },
+    "Gemma2B_SFT_DPO": {
+      "sft": "Columbia-NLP/gemma-2b-zephyr-sft",
+      "dpo": "Columbia-NLP/gemma-2b-zephyr-dpo",
+      "display_name": "Gemma-2B-SFT-DPO",
+      "hidden_dim": 2048,
+      "num_layers": 18,
+      "note": "Columbia NLP, Full FT"
+    },
+    "Qwen2_7B_DPOShift": {
+      "sft": "NoManDeRY/DPO-Shift-Qwen-2-7B-UltraChat200K-SFT",
+      "dpo": "NoManDeRY/DPO-Shift-Qwen-2-7B-Ultrafeedback-fixed-1.0",
+      "display_name": "Qwen2-7B-DPOShift",
+      "hidden_dim": 3584,
+      "num_layers": 28,
+      "note": "DPO-Shift paper (arxiv:2502.07599), Full FT"
+    },
+    "Qwen25_3B_Tulu": {
+      "sft": "phunguyen01/II-Tulu-3B-SFT",
+      "dpo": "phunguyen01/Qwen-Tulu-3B-DPO",
+      "display_name": "Qwen2.5-3B-Tulu",
+      "hidden_dim": 2048,
+      "num_layers": 36,
+      "note": "Tulu-3 SFT mixture, Full FT"
     }
   }
 }

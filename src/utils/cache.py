@@ -7,11 +7,11 @@ Avoids recomputation on re-runs.
     cache = TensorCache("hidden_states", output_dir / "Llama3_8B")
 
     # Check and load if exists
-    if cache.exists("h_base_chosen"):
-        tensor = cache.load("h_base_chosen")
+    if cache.exists("h_sft_chosen"):
+        tensor = cache.load("h_sft_chosen")
     else:
         tensor = compute_expensive_tensor(...)
-        cache.save("h_base_chosen", tensor)
+        cache.save("h_sft_chosen", tensor)
 """
 
 import pickle
@@ -33,17 +33,17 @@ class TensorCache:
         cache = TensorCache("steering", output_dir / "Llama3_8B")
 
         # Save tensors
-        cache.save("h_base_chosen", tensor)
+        cache.save("h_sft_chosen", tensor)
         cache.save_batch({
-            "h_base_chosen": t1,
-            "h_base_rejected": t2,
-            "h_instruct_chosen": t3,
-            "h_instruct_rejected": t4,
+            "h_sft_chosen": t1,
+            "h_sft_rejected": t2,
+            "h_dpo_chosen": t3,
+            "h_dpo_rejected": t4,
         })
 
         # Load tensors
-        if cache.exists("h_base_chosen"):
-            tensor = cache.load("h_base_chosen")
+        if cache.exists("h_sft_chosen"):
+            tensor = cache.load("h_sft_chosen")
 
         # Load all cached tensors
         all_tensors = cache.load_all()

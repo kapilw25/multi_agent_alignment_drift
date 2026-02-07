@@ -143,7 +143,7 @@ def run_phase1(model_keys, samples_per_category, output_dir):
 
         print(f"\n{'=' * 60}")
         print(f"Evaluating: {model_info['display_name']}")
-        print(f"HF Repo: {model_info['instruct']}")  # instruct model for AQI eval
+        print(f"HF Repo: {model_info['dpo']}")  # DPO model for AQI eval
         print(f"{'=' * 60}")
 
         model = None
@@ -189,7 +189,7 @@ def run_phase1(model_keys, samples_per_category, output_dir):
             overall = results.get("overall", {})
             model_result = {
                 "model_key": model_key,
-                "hf_repo": model_info["instruct"],  # instruct model used for eval
+                "hf_repo": model_info["dpo"],  # DPO model used for eval
                 "aqi_score": overall.get("AQI", 0.0),
                 "chi_norm": overall.get("CHI_norm", 0.0),
                 "xb_norm": overall.get("XB_norm", 0.0),

@@ -356,10 +356,10 @@ def get_hidden_states_batch(
 # =============================================================================
 
 def compute_steering_vectors_dsteer(
-    base_model,
-    instruct_model,
-    tokenizer_base,
-    tokenizer_instruct,
+    sft_model,
+    dpo_model,
+    tokenizer_sft,
+    tokenizer_dpo,
     samples: List[Dict],
     config: Config,
     output_dir: Path,
@@ -369,7 +369,7 @@ def compute_steering_vectors_dsteer(
     """
     Compute steering vectors using D_STEER approach with batched processing.
 
-    Formula: h_delta = mean(h_instruct - h_base)
+    Formula: h_delta = mean(h_dpo - h_sft)
     Computes for both chosen and rejected responses.
 
     Args:
@@ -380,16 +380,16 @@ def compute_steering_vectors_dsteer(
 
     # Initialize cache for hidden states
     cache = TensorCache("hidden_states", output_dir)
-    cache_keys = ["h_base_chosen", "h_base_rejected", "h_instruct_chosen", "h_instruct_rejected"]
+    cache_keys = ["h_sft_chosen", "h_sft_rejected", "h_dpo_chosen", "h_dpo_rejected"]
 
     # Check if all hidden states are cached
     if use_cache and cache.exists_all(cache_keys):
         print(f"\nLoading cached hidden states from {output_dir}...")
-        h_base_chosen_list = cache.load("h_base_chosen")
-        h_base_rejected_list = cache.load("h_base_rejected")
-        h_instruct_chosen_list = cache.load("h_instruct_chosen")
-        h_instruct_rejected_list = cache.load("h_instruct_rejected")
-        print(f"Loaded {len(h_base_chosen_list)} samples from cache")
+        h_sft_chosen_list = cache.load("h_sft_chosen")
+        h_sft_rejected_list = cache.load("h_sft_rejected")
+        h_dpo_chosen_list = cache.load("h_dpo_chosen")
+        h_dpo_rejected_list = cache.load("h_dpo_rejected")
+        print(f"Loaded {len(h_sft_chosen_list)} samples from cache")
     else:
         print(f"\nExtracting hidden states from {len(samples)} samples (batch_size={batch_size})...")
 
@@ -409,28 +409,28 @@ def compute_steering_vectors_dsteer(
 
         print(f"  Prepared {len(chosen_conversations)} chosen + {len(rejected_conversations)} rejected texts")
 
-        # Extract hidden states in batches (4 passes: base/instruct x chosen/rejected)
-        print("\n[1/4] BASE model - chosen responses...")
-        h_base_chosen_list = get_hidden_states_batch(
-            base_model, tokenizer_base, chosen_conversations, batch_size, device
+        # Extract hidden states in batches (4 passes: sft/dpo x chosen/rejected)
+        print("\n[1/4] SFT model - chosen responses...")
+        h_sft_chosen_list = get_hidden_states_batch(
+            sft_model, tokenizer_sft, chosen_conversations, batch_size, device
         )
         torch.cuda.empty_cache()
 
-        print("[2/4] BASE model - rejected responses...")
-        h_base_rejected_list = get_hidden_states_batch(
-            base_model, tokenizer_base, rejected_conversations, batch_size, device
+        print("[2/4] SFT model - rejected responses...")
+        h_sft_rejected_list = get_hidden_states_batch(
+            sft_model, tokenizer_sft, rejected_conversations, batch_size, device
         )
         torch.cuda.empty_cache()
 
-        print("[3/4] INSTRUCT model - chosen responses...")
-        h_instruct_chosen_list = get_hidden_states_batch(
-            instruct_model, tokenizer_instruct, chosen_conversations, batch_size, device
+        print("[3/4] DPO model - chosen responses...")
+        h_dpo_chosen_list = get_hidden_states_batch(
+            dpo_model, tokenizer_dpo, chosen_conversations, batch_size, device
         )
         torch.cuda.empty_cache()
 
-        print("[4/4] INSTRUCT model - rejected responses...")
-        h_instruct_rejected_list = get_hidden_states_batch(
-            instruct_model, tokenizer_instruct, rejected_conversations, batch_size, device
+        print("[4/4] DPO model - rejected responses...")
+        h_dpo_rejected_list = get_hidden_states_batch(
+            dpo_model, tokenizer_dpo, rejected_conversations, batch_size, device
         )
         torch.cuda.empty_cache()
 
@@ -438,23 +438,23 @@ def compute_steering_vectors_dsteer(
         if use_cache:
             print("\nCaching hidden states...")
             cache.save_batch({
-                "h_base_chosen": h_base_chosen_list,
-                "h_base_rejected": h_base_rejected_list,
-                "h_instruct_chosen": h_instruct_chosen_list,
-                "h_instruct_rejected": h_instruct_rejected_list,
+                "h_sft_chosen": h_sft_chosen_list,
+                "h_sft_rejected": h_sft_rejected_list,
+                "h_dpo_chosen": h_dpo_chosen_list,
+                "h_dpo_rejected": h_dpo_rejected_list,
             })
 
-    print(f"\nHidden states shape: {h_base_chosen_list.shape}")
+    print(f"\nHidden states shape: {h_sft_chosen_list.shape}")
 
     # Compute mean for cosine similarity
-    h_base_chosen_mean = torch.mean(h_base_chosen_list, dim=0)
-    h_base_rejected_mean = torch.mean(h_base_rejected_list, dim=0)
-    h_instruct_chosen_mean = torch.mean(h_instruct_chosen_list, dim=0)
-    h_instruct_rejected_mean = torch.mean(h_instruct_rejected_list, dim=0)
+    h_sft_chosen_mean = torch.mean(h_sft_chosen_list, dim=0)
+    h_sft_rejected_mean = torch.mean(h_sft_rejected_list, dim=0)
+    h_dpo_chosen_mean = torch.mean(h_dpo_chosen_list, dim=0)
+    h_dpo_rejected_mean = torch.mean(h_dpo_rejected_list, dim=0)
 
     # Compute differences (D_STEER formula)
-    stacked_differences_chosen = h_instruct_chosen_list - h_base_chosen_list
-    stacked_differences_rejected = h_instruct_rejected_list - h_base_rejected_list
+    stacked_differences_chosen = h_dpo_chosen_list - h_sft_chosen_list
+    stacked_differences_rejected = h_dpo_rejected_list - h_sft_rejected_list
 
     # Mean steering vectors
     h_delta_chosen = torch.mean(stacked_differences_chosen, dim=0)     # num_layers x hidden_dim
@@ -465,8 +465,8 @@ def compute_steering_vectors_dsteer(
     torch.save(h_delta_rejected, output_dir / "steering_vector_rejected.pth")
 
     # Compute cosine similarity
-    chosen_similarity = torch.cosine_similarity(h_instruct_chosen_mean, h_base_chosen_mean, dim=1).to(torch.float32)
-    rejected_similarity = torch.cosine_similarity(h_instruct_rejected_mean, h_base_rejected_mean, dim=1).to(torch.float32)
+    chosen_similarity = torch.cosine_similarity(h_dpo_chosen_mean, h_sft_chosen_mean, dim=1).to(torch.float32)
+    rejected_similarity = torch.cosine_similarity(h_dpo_rejected_mean, h_sft_rejected_mean, dim=1).to(torch.float32)
 
     # Plot cosine similarity (matching D_STEER)
     plot_cosine_similarity(
@@ -625,18 +625,18 @@ def extract_steering_vectors(
 
         print(f"\n{'=' * 60}")
         print(f"Extracting: {model_info['display_name']}")
-        print(f"  Base:     {model_info['base']}")
-        print(f"  Instruct: {model_info['instruct']}")
+        print(f"  SFT: {model_info['sft']}")
+        print(f"  DPO: {model_info['dpo']}")
         print(f"{'=' * 60}")
 
         try:
             # === Load both models ===
-            print("\n[1/3] Loading BASE model...")
-            base_model, tokenizer_base = load_model_and_tokenizer(model_info["base"])
+            print("\n[1/3] Loading SFT model...")
+            sft_model, tokenizer_sft = load_model_and_tokenizer(model_info["sft"])
             print_gpu_memory()
 
-            print("\n[2/3] Loading INSTRUCT model...")
-            instruct_model, tokenizer_instruct = load_model_and_tokenizer(model_info["instruct"])
+            print("\n[2/3] Loading DPO model...")
+            dpo_model, tokenizer_dpo = load_model_and_tokenizer(model_info["dpo"])
             print_gpu_memory()
 
             # === Compute steering vectors ===
@@ -644,10 +644,10 @@ def extract_steering_vectors(
             model_batch_size = get_batch_size(model_key, phase=2)
             print(f"\n[3/3] Computing steering vectors (batch_size={model_batch_size})...")
             result = compute_steering_vectors_dsteer(
-                base_model,
-                instruct_model,
-                tokenizer_base,
-                tokenizer_instruct,
+                sft_model,
+                dpo_model,
+                tokenizer_sft,
+                tokenizer_dpo,
                 samples,
                 config,
                 model_output_dir,
@@ -656,9 +656,9 @@ def extract_steering_vectors(
             )
 
             # Unload models
-            unload_model(base_model)
-            unload_model(instruct_model)
-            del tokenizer_base, tokenizer_instruct
+            unload_model(sft_model)
+            unload_model(dpo_model)
+            del tokenizer_sft, tokenizer_dpo
             cleanup_gpu()
 
             # Plot steering vector norms
@@ -674,8 +674,8 @@ def extract_steering_vectors(
                 json.dump({
                     "model_key": model_key,
                     "display_name": model_info["display_name"],
-                    "base_model": model_info["base"],
-                    "instruct_model": model_info["instruct"],
+                    "sft_model": model_info["sft"],
+                    "dpo_model": model_info["dpo"],
                     "num_samples": result["num_samples"],
                     "num_layers": result["num_layers"],
                     "hidden_dim": result["hidden_dim"],
