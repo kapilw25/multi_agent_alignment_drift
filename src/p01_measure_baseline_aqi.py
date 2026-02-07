@@ -64,12 +64,11 @@ from aqi.aqi_dealign_xb_chi import (
 )
 
 # Import local config and model registry (independent of AQI package)
-from m01_config import (
-    PHASE1_MODEL_KEYS, DATASET_NAME, GAMMA, DIM_REDUCTION,
-    RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX, BATCH_SIZE, OUTPUT_DIR,
-    get_batch_size,
+from utils.config import (
+    DATASET_NAME, GAMMA, DIM_REDUCTION,
+    RANDOM_SEED, SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX, OUTPUT_DIR,
 )
-from utils import load_model_registry, get_model_info
+from utils import load_model_registry, get_model_info, get_batch_size, get_all_model_keys
 from utils.plot_aqi import create_all_plots
 from utils.checkpoint import CheckpointManager, show_checkpoint_menu
 
@@ -303,7 +302,7 @@ def main():
         samples = SAMPLES_FULL   # 500 per category → 7,000 total
     else:  # max
         samples = SAMPLES_MAX    # 2000 per category → 28,000 total
-    model_keys = args.models if args.models else PHASE1_MODEL_KEYS
+    model_keys = args.models if args.models else get_all_model_keys()
     model_keys = [m for m in model_keys if m in MODEL_REGISTRY]
     output_dir = args.output or str(OUTPUT_DIR)
 

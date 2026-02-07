@@ -75,11 +75,11 @@ from aqi.aqi_dealign_xb_chi import (
 )
 
 # Import local utilities
-from utils import load_model_registry, get_model_info
+from utils import load_model_registry, get_model_info, get_batch_size
 from utils.checkpoint import CheckpointManager, show_checkpoint_menu
-from m01_config import (
+from utils.config import (
     DATASET_NAME, GAMMA, DIM_REDUCTION, RANDOM_SEED,
-    SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX, get_batch_size,
+    SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX,
 )
 
 # Lazy imports for transformers (after dotenv)

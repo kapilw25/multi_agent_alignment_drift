@@ -1,6 +1,7 @@
 {
   "description": "SFT→DPO pairs for D-STEER multi-agent alignment experiments",
-  "version": "2.0",
+  "version": "2.1",
+  "batch_size_note": "Phase 1 (p03, 1 model loaded) uses batch_size directly. Phase 2 (p02, 2 models loaded) auto-divides by 4.",
   "models": {
     "Llama31_Tulu": {
       "sft": "allenai/Llama-3.1-Tulu-3-8B-SFT",
@@ -8,15 +9,8 @@
       "display_name": "Llama-3.1-Tulu-8B",
       "hidden_dim": 4096,
       "num_layers": 32,
+      "batch_size": 16,
       "note": "D-STEER reference pair. VALIDATED (Δ=+21.8 monotonic)"
-    },
-    "Llama31_PKU_Custom": {
-      "sft": "anonymousML123/llama3-8b-pku-SFT-NoInstruct-Baseline-NoInstruct",
-      "dpo": "anonymousML123/llama3-8b-pku-DPO-NoInstruct-SFT-NoInstruct",
-      "display_name": "Llama-3.1-PKU-Custom",
-      "hidden_dim": 4096,
-      "num_layers": 32,
-      "note": "LoRA pair, negative control. FAILED (Δ=-2.98)"
     },
     "Llama31_MAHALS": {
       "sft": "anonymousML123/Llama-3.1-8B-Tulu10pct-SFT-MAHALS",
@@ -24,6 +18,7 @@
       "display_name": "Llama-3.1-MAHALS-8B",
       "hidden_dim": 4096,
       "num_layers": 32,
+      "batch_size": 16,
       "note": "Full FT pair (10% Tulu). VALIDATED (Δ=+23.8 monotonic)"
     },
     "OLMo2_1B": {
@@ -32,6 +27,7 @@
       "display_name": "OLMo-2-1B",
       "hidden_dim": 2048,
       "num_layers": 16,
+      "batch_size": 64,
       "note": "AllenAI, Tulu 3 recipe, Full FT"
     },
     "OLMo2_7B": {
@@ -40,6 +36,7 @@
       "display_name": "OLMo-2-7B",
       "hidden_dim": 4096,
       "num_layers": 32,
+      "batch_size": 24,
       "note": "AllenAI, Tulu 3 recipe, Full FT"
     },
     "OLMoE_Tulu": {
@@ -48,6 +45,7 @@
       "display_name": "OLMoE-1B-7B",
       "hidden_dim": 2048,
       "num_layers": 16,
+      "batch_size": 24,
       "note": "MoE (64 experts, 8 active), 1B active / 7B total, Full FT"
     },
     "OLMo3_7B": {
@@ -56,6 +54,7 @@
       "display_name": "OLMo-3-7B",
       "hidden_dim": 4096,
       "num_layers": 32,
+      "batch_size": 24,
       "note": "AllenAI, Dolci recipe, Full FT"
     },
     "Zephyr_SFT_DPO": {
@@ -64,6 +63,7 @@
       "display_name": "Zephyr-7B-SFT-DPO",
       "hidden_dim": 4096,
       "num_layers": 32,
+      "batch_size": 24,
       "note": "HuggingFace, UltraChat→UltraFeedback, Full FT"
     },
     "Phi2_SFT_DPO": {
@@ -72,6 +72,7 @@
       "display_name": "Phi-2-SFT-DPO",
       "hidden_dim": 2560,
       "num_layers": 32,
+      "batch_size": 48,
       "note": "Stanford, parallel attn+MLP arch, Full FT"
     },
     "Gemma7B_SFT_DPO": {
@@ -80,6 +81,7 @@
       "display_name": "Gemma-7B-SFT-DPO",
       "hidden_dim": 3072,
       "num_layers": 28,
+      "batch_size": 24,
       "note": "HuggingFace (lewtun), deita+dpo-mix, Full FT"
     },
     "Gemma2B_SFT_DPO": {
@@ -88,6 +90,7 @@
       "display_name": "Gemma-2B-SFT-DPO",
       "hidden_dim": 2048,
       "num_layers": 18,
+      "batch_size": 48,
       "note": "Columbia NLP, Full FT"
     },
     "Qwen2_7B_DPOShift": {
@@ -96,6 +99,7 @@
       "display_name": "Qwen2-7B-DPOShift",
       "hidden_dim": 3584,
       "num_layers": 28,
+      "batch_size": 24,
       "note": "DPO-Shift paper (arxiv:2502.07599), Full FT"
     },
     "Qwen25_3B_Tulu": {
@@ -104,6 +108,7 @@
       "display_name": "Qwen2.5-3B-Tulu",
       "hidden_dim": 2048,
       "num_layers": 36,
+      "batch_size": 32,
       "note": "Tulu-3 SFT mixture, Full FT"
     }
   }

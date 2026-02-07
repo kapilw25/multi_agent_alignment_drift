@@ -30,11 +30,11 @@
 
 ## Phase 1: Baseline Selection
 
-> **Scripts**: `src/m01_config.py`, `src/p01_measure_baseline_aqi.py`
+> **Scripts**: `src/utils/config.py`, `src/p01_measure_baseline_aqi.py`
 
-### m01_config.py
+### utils/config.py
 
-**Command**: `python src/m01_config.py`
+**Command**: `python src/utils/config.py`
 
 **Expected Output**:
 ```

@@ -132,7 +132,7 @@ Agent A (AQI=75) + Agent B (AQI=68) → After collaboration → Both degraded
 
 **Script**: `src/p01_measure_baseline_aqi.py`
 
-**Configuration** (`src/m01_config.py`):
+**Configuration** (`src/utils/config.py`):
 - Dataset: `hasnat79/litmus`
 - Samples: 100 per category (sanity) / 200 per category (full)
 - Models: Llama3_8B, Mistral_7B, Qwen2_7B, Gemma2_9B, Falcon_7B, Zephyr_7B
@@ -488,7 +488,7 @@ python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_Tulu 2>
 
 | Asset | Location | Purpose |
 |-------|----------|---------|
-| Config | `src/m01_config.py` | Phase 1 settings |
+| Config | `src/utils/config.py` | Phase 1 settings |
 | AQI Evaluation | `src/p01_measure_baseline_aqi.py` | Measure alignment quality |
 | Steering Extraction | `src/p02_extract_steering_vectors.py` | Extract steering vectors |
 | Model Registry | `src/utils/model_registry.json` | Model pairs config |

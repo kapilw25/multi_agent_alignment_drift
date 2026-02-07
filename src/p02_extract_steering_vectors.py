@@ -53,7 +53,7 @@ from utils.plot_steering import (
 )
 from utils.checkpoint import CheckpointManager, show_checkpoint_menu
 from utils.cache import TensorCache
-from m01_config import get_batch_size, BATCH_SIZE
+from utils import get_batch_size
 
 # Load environment
 load_dotenv(PROJECT_ROOT / ".env")
@@ -578,7 +578,6 @@ def extract_steering_vectors(
     config: Config,
     num_samples: int,
     output_dir: Path,
-    batch_size: int = BATCH_SIZE,
     use_cache: bool = True,
 ) -> Dict:
     """Extract steering vectors for specified models using D_STEER approach."""

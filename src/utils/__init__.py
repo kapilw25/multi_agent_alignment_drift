@@ -3,16 +3,12 @@
 Utility modules for multi-agent alignment evaluation.
 
 Available modules:
+    - config: Shared evaluation settings (dataset, samples, paths)
+    - model_registry.json: Single source of truth for all models
     - checkpoint: CheckpointManager for resumable runs
     - cache: TensorCache, EmbeddingCache for caching
     - plot_aqi: AQI score bar plots
     - plot_steering: Steering vector plots
-    - model_loader: Model loading utilities (TODO)
-    - generation: Batch text generation (TODO)
-    - cli_menus: Interactive CLI menus (TODO)
-    - response_validator: Output validation (TODO)
-    - plotting: General plotting utils (TODO)
-    - dataset_info: Dataset statistics (TODO)
 """
 
 import json
@@ -45,6 +41,30 @@ def get_model_info(model_key: str) -> dict:
 def get_all_model_keys() -> list:
     """Get all available model keys."""
     return list(load_model_registry().keys())
+
+
+def get_batch_size(model_key: str, phase: int = 1) -> int:
+    """Get batch size for a model from model_registry.json.
+
+    Args:
+        model_key: Model identifier (must exist in model_registry.json with batch_size field)
+        phase: 1 = single model loaded (p03), 2 = two models loaded (p02)
+
+    Returns:
+        Batch size. Phase 2 returns base // 4 (2 models + output_hidden_states).
+
+    Raises:
+        KeyError: If model_key not in registry or batch_size not defined.
+    """
+    registry = load_model_registry()
+    if model_key not in registry:
+        raise KeyError(f"Model '{model_key}' not in model_registry.json. Available: {list(registry.keys())}")
+    if "batch_size" not in registry[model_key]:
+        raise KeyError(f"'batch_size' not defined for '{model_key}' in model_registry.json. Add it to avoid OOM or GPU under-utilization.")
+    base_batch = registry[model_key]["batch_size"]
+    if phase == 2:
+        return max(2, base_batch // 4)
+    return base_batch
 
 
 # =============================================================================

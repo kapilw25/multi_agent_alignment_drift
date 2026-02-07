@@ -75,7 +75,7 @@ if [ "$1" = "--mac" ]; then
     echo "  source venv_Agnt_Algnmt/bin/activate"
     echo ""
     echo "Run tests:"
-    echo "  python src/m01_config.py"
+    echo "  python src/utils/config.py"
     echo "  python src/m02_measure_baseline_aqi.py --help"
     echo ""
     exit 0
