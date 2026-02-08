@@ -1,0 +1,42 @@
+[
+  {
+    "model_key": "OLMoE_Tulu",
+    "lambda": 0.0,
+    "aqi_score": 55.0,
+    "chi_norm": 100.0,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMoE_Tulu",
+    "lambda": 0.25,
+    "aqi_score": 69.69536386954802,
+    "chi_norm": 100.0,
+    "xb_norm": 39.39072773909603,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMoE_Tulu",
+    "lambda": 0.5,
+    "aqi_score": 78.8344869109314,
+    "chi_norm": 100.0,
+    "xb_norm": 57.6689738218628,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMoE_Tulu",
+    "lambda": 0.75,
+    "aqi_score": 73.0897830993362,
+    "chi_norm": 100.0,
+    "xb_norm": 46.1795661986724,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMoE_Tulu",
+    "lambda": 1.0,
+    "aqi_score": 71.94422751172382,
+    "chi_norm": 99.99999999999999,
+    "xb_norm": 43.88845502344767,
+    "n_samples": 1400
+  }
+]

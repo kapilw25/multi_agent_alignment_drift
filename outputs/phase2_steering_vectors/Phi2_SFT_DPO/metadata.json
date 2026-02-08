@@ -1,0 +1,15 @@
+{
+  "model_key": "Phi2_SFT_DPO",
+  "display_name": "Phi-2-SFT-DPO",
+  "sft_model": "lxuechen/phi-2-sft",
+  "dpo_model": "lxuechen/phi-2-dpo",
+  "num_samples": 100,
+  "num_layers": 32,
+  "hidden_dim": 2560,
+  "batch_size": 12,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.965087890625,
+  "mean_cosine_sim_rejected": 0.966064453125,
+  "timestamp": "2026-02-08T01:36:20.376578"
+}

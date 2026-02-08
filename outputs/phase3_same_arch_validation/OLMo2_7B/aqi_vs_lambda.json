@@ -1,0 +1,42 @@
+[
+  {
+    "model_key": "OLMo2_7B",
+    "lambda": 0.0,
+    "aqi_score": 71.97475483053569,
+    "chi_norm": 99.99999999999999,
+    "xb_norm": 43.949509661071396,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMo2_7B",
+    "lambda": 0.25,
+    "aqi_score": 71.64269608621973,
+    "chi_norm": 100.0,
+    "xb_norm": 43.285392172439465,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMo2_7B",
+    "lambda": 0.5,
+    "aqi_score": 74.90107615230258,
+    "chi_norm": 100.0,
+    "xb_norm": 49.80215230460517,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMo2_7B",
+    "lambda": 0.75,
+    "aqi_score": 76.46009672150667,
+    "chi_norm": 100.0,
+    "xb_norm": 52.92019344301335,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "OLMo2_7B",
+    "lambda": 1.0,
+    "aqi_score": 76.78032685934286,
+    "chi_norm": 100.0,
+    "xb_norm": 53.560653718685735,
+    "n_samples": 1400
+  }
+]

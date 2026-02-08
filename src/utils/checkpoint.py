@@ -11,6 +11,7 @@ Allows resuming from crashes without losing progress.
 """
 
 import json
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -211,12 +212,21 @@ def show_checkpoint_menu(ckpt: CheckpointManager, all_models: List[str]) -> str:
         print(f"In progress: {current}")
     print(f"{'=' * 60}")
 
+    # Non-interactive mode: auto-select option 1 (resume/preserve)
+    interactive = sys.stdin.isatty()
+
+    def _get_choice(prompt="Choice [1/2]: "):
+        if not interactive:
+            print(f"\n{prompt}1 (auto: non-interactive)")
+            return "1"
+        return input(f"\n{prompt}").strip()
+
     # Case 1: All requested models already completed
     if not need_to_run:
         print("\nAll requested models already in cache.")
         print("[1] Use cached results (regenerate plots only)")
         print("[2] Start fresh (delete checkpoint)")
-        choice = input("\nChoice [1/2]: ").strip()
+        choice = _get_choice()
         if choice == "2":
             ckpt.delete()
             return "restart"
@@ -227,7 +237,7 @@ def show_checkpoint_menu(ckpt: CheckpointManager, all_models: List[str]) -> str:
         print(f"\n{len(already_done)} model(s) cached, {len(need_to_run)} new to run.")
         print("[1] Add new models (preserve existing results)")
         print("[2] Start fresh (delete checkpoint)")
-        choice = input("\nChoice [1/2]: ").strip()
+        choice = _get_choice()
         if choice == "2":
             ckpt.delete()
             return "restart"
@@ -236,13 +246,8 @@ def show_checkpoint_menu(ckpt: CheckpointManager, all_models: List[str]) -> str:
             ckpt.update(_complete=False)
         return "resume"
 
-    # Case 3: None of the requested models are done yet
-    print("\n[1] Resume from checkpoint")
-    print("[2] Start fresh (delete checkpoint)")
-    choice = input("\nChoice [1/2]: ").strip()
-
-    if choice == "2":
-        ckpt.delete()
-        return "restart"
-
+    # Case 3: No overlap — requested models not in checkpoint
+    # Just continue; checkpoint may hold other models' data
+    if is_done:
+        ckpt.update(_complete=False)
     return "resume"

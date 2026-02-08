@@ -1,0 +1,8 @@
+{
+  "model_key": "Gemma7B_SFT_DPO",
+  "lambda": 0.75,
+  "aqi_score": 64.65435367865626,
+  "chi_norm": 100.0,
+  "xb_norm": 29.308707357312514,
+  "n_samples": 1400
+}

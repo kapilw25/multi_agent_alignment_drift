@@ -173,9 +173,36 @@ def load_model_and_tokenizer(model_name="unsloth/llama-3.1-8b-instruct-bnb-4bit"
         print("Please ensure Unsloth is installed (pip install unsloth) and the model name is correct.")
         raise
 
+def _aqi_get_decoder_layers(model):
+    """Get decoder layers list from model, supporting common architectures."""
+    if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        return model.model.layers  # Llama, Mistral, OLMo, Gemma, Qwen
+    if hasattr(model, 'model') and hasattr(model.model, 'decoder') and hasattr(model.model.decoder, 'layers'):
+        return model.model.decoder.layers
+    if hasattr(model, 'transformer') and hasattr(model.transformer, 'h'):
+        return model.transformer.h  # Falcon, GPT-2, Phi (custom)
+    if hasattr(model, 'model') and hasattr(model.model, 'inner_model') and hasattr(model.model.inner_model, 'layers'):
+        return model.model.inner_model.layers  # Some custom wrappers
+    raise ValueError(f"Cannot find decoder layers in {type(model).__name__}")
+
+
+def _aqi_check_output_hidden_states(model, tokenizer, device) -> bool:
+    """Test if model returns hidden_states via output_hidden_states=True."""
+    test_input = tokenizer("test", return_tensors="pt").to(device)
+    with torch.no_grad():
+        test_out = model(**test_input, output_hidden_states=True)
+    supported = test_out.hidden_states is not None
+    del test_input, test_out
+    torch.cuda.empty_cache()
+    return supported
+
+
 def get_hidden_states_batch(model, tokenizer, texts, batch_size=8, layer=-1, pooling_strategy='mean', device="cuda"):
     """
     Process text in batches and extract hidden states from a specific layer.
+
+    For models whose custom code ignores output_hidden_states (e.g. lxuechen/phi-2),
+    hidden states are captured via forward hooks on decoder layers.
 
     Args:
         model: The language model
@@ -226,6 +253,45 @@ def get_hidden_states_batch(model, tokenizer, texts, batch_size=8, layer=-1, poo
     max_length = tokenizer.model_max_length if (hasattr(tokenizer, 'model_max_length') and tokenizer.model_max_length and tokenizer.model_max_length < 100000) else 2048
     print(f"Using max_length: {max_length} for truncation.")
 
+    # Detect whether model supports output_hidden_states
+    use_hooks = not _aqi_check_output_hidden_states(model, tokenizer, model_device)
+
+    # Setup hooks if needed
+    hooks = []
+    hook_states = {}
+    decoder_layers = None
+
+    if use_hooks:
+        decoder_layers = _aqi_get_decoder_layers(model)
+        num_decoder_layers = len(decoder_layers)
+        # Resolve target layer index (layer param can be negative)
+        # decoder layers are 0-indexed; outputs.hidden_states includes embedding at [0],
+        # so decoder layer i corresponds to outputs.hidden_states[i+1].
+        # For hook-based: layer=-1 → last decoder layer (index num_decoder_layers-1)
+        # layer=0 in original code means embedding layer, but layer=1 means first decoder layer
+        # Typically layer=-1 is used, which is last decoder layer
+        if layer >= 0:
+            # In outputs.hidden_states: index 0=embedding, 1..N=decoder layers
+            # So layer=k means decoder_layers[k-1] if k>0, or embedding if k==0
+            # For hook-based, we can't extract embedding layer, so if layer==0 use first decoder
+            target_hook_layer = max(layer - 1, 0)
+        else:
+            target_hook_layer = num_decoder_layers + layer  # e.g. -1 → last layer
+
+        print(f"  Model does not return hidden_states — using hook extraction")
+        print(f"  Target: decoder layer {target_hook_layer} of {num_decoder_layers}")
+
+        for idx, dec_layer in enumerate(decoder_layers):
+            def _make_hook(layer_idx):
+                def _hook_fn(module, input, output):
+                    if layer_idx == target_hook_layer:
+                        if isinstance(output, tuple):
+                            hook_states[layer_idx] = output[0].detach()
+                        else:
+                            hook_states[layer_idx] = output.detach()
+                return _hook_fn
+            hooks.append(dec_layer.register_forward_hook(_make_hook(idx)))
+
     for i in tqdm(range(0, len(texts), batch_size), desc="Embedding Batches", unit="batch"):
         batch_texts = texts[i : i + batch_size]
         inputs = tokenizer(
@@ -239,21 +305,24 @@ def get_hidden_states_batch(model, tokenizer, texts, batch_size=8, layer=-1, poo
         inputs = {k: v.to(model_device) for k, v in inputs.items()}
 
         with torch.no_grad():
-            outputs = model(**inputs, output_hidden_states=True)
+            if use_hooks:
+                hook_states.clear()
+                model(**inputs)
+                batch_hidden_states = hook_states[target_hook_layer]  # (batch_size, seq_len, hidden_dim)
+            else:
+                outputs = model(**inputs, output_hidden_states=True)
 
-            # Extract hidden states from the specified layer
-            # outputs.hidden_states is a tuple of tensors, one for each layer + embeddings
-            # Layer indices are 0 (embeddings) to num_hidden_layers
-            # layer=-1 corresponds to index len(outputs.hidden_states) - 1
-            try:
-                layer_index = layer if layer >= 0 else len(outputs.hidden_states) + layer
-                batch_hidden_states = outputs.hidden_states[layer_index] # Shape: (batch_size, seq_len, hidden_dim)
-            except IndexError:
-                 print(f"\nError: Invalid layer index {layer}. Model has {len(outputs.hidden_states)-1} layers (0 to {len(outputs.hidden_states)-2}). Using last layer (-1).")
-                 batch_hidden_states = outputs.hidden_states[-1]
-            except AttributeError:
-                 print("\nError: 'output_hidden_states=True' might not be supported or model output structure is unexpected.")
-                 raise
+                # Extract hidden states from the specified layer
+                # outputs.hidden_states is a tuple of tensors, one for each layer + embeddings
+                # Layer indices are 0 (embeddings) to num_hidden_layers
+                # layer=-1 corresponds to index len(outputs.hidden_states) - 1
+                try:
+                    layer_index = layer if layer >= 0 else len(outputs.hidden_states) + layer
+                    batch_hidden_states = outputs.hidden_states[layer_index] # Shape: (batch_size, seq_len, hidden_dim)
+                except IndexError:
+                     print(f"\nError: Invalid layer index {layer}. Model has {len(outputs.hidden_states)-1} layers (0 to {len(outputs.hidden_states)-2}). Using last layer (-1).")
+                     batch_hidden_states = outputs.hidden_states[-1]
+                del outputs  # Free all-layer hidden states from GPU immediately
 
             # Apply pooling strategy
             attention_mask = inputs['attention_mask'] # Shape: (batch_size, seq_len)
@@ -280,7 +349,16 @@ def get_hidden_states_batch(model, tokenizer, texts, batch_size=8, layer=-1, poo
             # Move to CPU and convert to float32 numpy array (required by scikit-learn/numpy)
             pooled_states = pooled_states.cpu().float().numpy()
 
+        # Free GPU tensors and defragment CUDA memory between batches
+        del batch_hidden_states, inputs
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         hidden_states_list.extend(pooled_states)
+
+    # Cleanup hooks
+    for h in hooks:
+        h.remove()
 
     return np.array(hidden_states_list)
 

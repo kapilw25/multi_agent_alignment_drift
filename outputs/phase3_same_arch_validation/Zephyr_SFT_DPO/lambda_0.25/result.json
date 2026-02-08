@@ -1,0 +1,8 @@
+{
+  "model_key": "Zephyr_SFT_DPO",
+  "lambda": 0.25,
+  "aqi_score": 68.45574008705032,
+  "chi_norm": 100.0,
+  "xb_norm": 36.91148017410062,
+  "n_samples": 1400
+}

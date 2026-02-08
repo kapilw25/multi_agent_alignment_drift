@@ -1,0 +1,15 @@
+{
+  "model_key": "Zephyr_SFT_DPO",
+  "display_name": "Zephyr-7B-SFT-DPO",
+  "sft_model": "alignment-handbook/zephyr-7b-sft-full",
+  "dpo_model": "HuggingFaceH4/zephyr-7b-beta",
+  "num_samples": 100,
+  "num_layers": 32,
+  "hidden_dim": 4096,
+  "batch_size": 6,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.6666259765625,
+  "mean_cosine_sim_rejected": 0.6544189453125,
+  "timestamp": "2026-02-08T02:44:54.876114"
+}

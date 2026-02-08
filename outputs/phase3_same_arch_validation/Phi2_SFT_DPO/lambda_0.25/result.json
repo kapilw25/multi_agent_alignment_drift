@@ -1,0 +1,8 @@
+{
+  "model_key": "Phi2_SFT_DPO",
+  "lambda": 0.25,
+  "aqi_score": 78.20605493903159,
+  "chi_norm": 100.0,
+  "xb_norm": 56.41210987806316,
+  "n_samples": 1400
+}

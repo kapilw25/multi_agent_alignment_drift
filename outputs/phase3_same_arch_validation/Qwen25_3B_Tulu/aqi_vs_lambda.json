@@ -1,0 +1,42 @@
+[
+  {
+    "model_key": "Qwen25_3B_Tulu",
+    "lambda": 0.0,
+    "aqi_score": 10.447889974140072,
+    "chi_norm": 10.895779948280142,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Qwen25_3B_Tulu",
+    "lambda": 0.25,
+    "aqi_score": 22.417271547169445,
+    "chi_norm": 34.83454309433889,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Qwen25_3B_Tulu",
+    "lambda": 0.5,
+    "aqi_score": 42.30435161281927,
+    "chi_norm": 74.60870322563854,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Qwen25_3B_Tulu",
+    "lambda": 0.75,
+    "aqi_score": 5.0,
+    "chi_norm": 0.0,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  },
+  {
+    "model_key": "Qwen25_3B_Tulu",
+    "lambda": 1.0,
+    "aqi_score": 21.804484686968806,
+    "chi_norm": 33.60896937393761,
+    "xb_norm": 10.0,
+    "n_samples": 1400
+  }
+]

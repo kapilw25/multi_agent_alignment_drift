@@ -1,0 +1,8 @@
+{
+  "model_key": "OLMo2_1B",
+  "lambda": 0.75,
+  "aqi_score": 73.5897144601707,
+  "chi_norm": 100.0,
+  "xb_norm": 47.1794289203414,
+  "n_samples": 1400
+}

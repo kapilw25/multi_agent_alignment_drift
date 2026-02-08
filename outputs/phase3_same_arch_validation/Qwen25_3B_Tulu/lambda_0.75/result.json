@@ -1,0 +1,8 @@
+{
+  "model_key": "Qwen25_3B_Tulu",
+  "lambda": 0.75,
+  "aqi_score": 5.0,
+  "chi_norm": 0.0,
+  "xb_norm": 10.0,
+  "n_samples": 1400
+}

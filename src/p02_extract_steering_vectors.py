@@ -252,6 +252,30 @@ def unload_model(model):
 # HIDDEN STATE EXTRACTION (matching D_STEER notebook)
 # =============================================================================
 
+def _get_decoder_layers(model):
+    """Get decoder layers list from model, supporting common architectures."""
+    if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        return model.model.layers  # Llama, Mistral, OLMo, Gemma, Qwen
+    if hasattr(model, 'model') and hasattr(model.model, 'decoder') and hasattr(model.model.decoder, 'layers'):
+        return model.model.decoder.layers
+    if hasattr(model, 'transformer') and hasattr(model.transformer, 'h'):
+        return model.transformer.h  # Falcon, GPT-2, Phi (custom)
+    if hasattr(model, 'model') and hasattr(model.model, 'inner_model') and hasattr(model.model.inner_model, 'layers'):
+        return model.model.inner_model.layers  # Some custom wrappers
+    raise ValueError(f"Cannot find decoder layers in {type(model).__name__}")
+
+
+def _check_output_hidden_states(model, tokenizer, device: str = "cuda") -> bool:
+    """Test if model returns hidden_states via output_hidden_states=True."""
+    test_input = tokenizer("test", return_tensors="pt").to(device)
+    with torch.no_grad():
+        test_out = model(**test_input, output_hidden_states=True)
+    supported = test_out.hidden_states is not None
+    del test_input, test_out
+    torch.cuda.empty_cache()
+    return supported
+
+
 def get_all_hidden_states(
     model,
     tokenizer,
@@ -296,6 +320,9 @@ def get_hidden_states_batch(
     Extract hidden states from all layers for the last token of each text in batch.
     Batched version of get_all_hidden_states() for better GPU utilization.
 
+    For models whose custom code ignores output_hidden_states (e.g. lxuechen/phi-2),
+    hidden states are captured via forward hooks on decoder layers.
+
     Args:
         model: The model to extract hidden states from
         tokenizer: The tokenizer
@@ -306,6 +333,29 @@ def get_hidden_states_batch(
     Returns:
         torch.Tensor: Hidden states of shape [num_samples, num_layers, hidden_dim]
     """
+    # Detect whether model supports output_hidden_states
+    use_hooks = not _check_output_hidden_states(model, tokenizer, device)
+
+    # Setup hooks if needed
+    hooks = []
+    hook_states = {}  # layer_idx -> tensor
+    decoder_layers = None
+
+    if use_hooks:
+        decoder_layers = _get_decoder_layers(model)
+        print(f"  Model does not return hidden_states — using hook extraction on {len(decoder_layers)} layers")
+
+        for idx, layer in enumerate(decoder_layers):
+            def _make_hook(layer_idx):
+                def _hook_fn(module, input, output):
+                    # Decoder layers return (hidden_states, ...) or hidden_states
+                    if isinstance(output, tuple):
+                        hook_states[layer_idx] = output[0].detach()
+                    else:
+                        hook_states[layer_idx] = output.detach()
+                return _hook_fn
+            hooks.append(layer.register_forward_hook(_make_hook(idx)))
+
     all_hidden_states = []
 
     for i in tqdm(range(0, len(texts), batch_size), desc="Batches", leave=False):
@@ -321,24 +371,25 @@ def get_hidden_states_batch(
         ).to(device)
 
         with torch.no_grad():
-            outputs = model(**inputs, output_hidden_states=True)
-
-        # outputs.hidden_states is tuple of (num_layers + 1) tensors
-        # Each tensor: (batch_size, seq_len, hidden_dim)
+            if use_hooks:
+                hook_states.clear()
+                model(**inputs)
+                # Stack decoder layer outputs: (num_layers, batch_size, seq_len, hidden_dim)
+                hs = torch.stack([hook_states[idx] for idx in range(len(decoder_layers))], dim=0)
+            else:
+                outputs = model(**inputs, output_hidden_states=True)
+                # Stack and skip embedding layer: (num_layers, batch_size, seq_len, hidden_dim)
+                hs = torch.stack(outputs.hidden_states[1:], dim=0)
 
         # Get last token position for each sample (accounting for padding)
         attention_mask = inputs["attention_mask"]
         seq_lengths = attention_mask.sum(dim=1) - 1  # Last token index
 
-        # Stack hidden states: (num_layers + 1, batch_size, seq_len, hidden_dim)
-        hs = torch.stack(outputs.hidden_states, dim=0)
-
         # Extract last token hidden states for each sample in batch
         batch_hidden = []
         for b_idx in range(len(batch_texts)):
             last_idx = seq_lengths[b_idx].item()
-            # Get hidden states at last token position, skip embedding layer
-            sample_hs = hs[1:, b_idx, int(last_idx), :]  # num_layers x hidden_dim
+            sample_hs = hs[:, b_idx, int(last_idx), :]  # num_layers x hidden_dim
             batch_hidden.append(sample_hs.cpu())
 
         all_hidden_states.extend(batch_hidden)
@@ -346,6 +397,10 @@ def get_hidden_states_batch(
         # Clear GPU cache periodically
         if i % (batch_size * 10) == 0:
             torch.cuda.empty_cache()
+
+    # Cleanup hooks
+    for h in hooks:
+        h.remove()
 
     # Stack all samples: (num_samples, num_layers, hidden_dim)
     return torch.stack(all_hidden_states)
@@ -488,7 +543,8 @@ def compute_steering_vectors_dsteer(
             stacked_differences_chosen,
             h_delta_chosen,
             config.steering_vector_svd_component,
-            output_dir
+            output_dir,
+            device=config.device,
         )
 
     return {
@@ -512,9 +568,10 @@ def apply_svd_decomposition(
     h_delta: torch.Tensor,
     component: int,
     output_dir: Path,
+    device: str = "cuda",
 ) -> torch.Tensor:
     """
-    Apply SVD decomposition to steering vectors.
+    Apply SVD decomposition to steering vectors on GPU via torch.linalg.svd.
     Matching D_STEER notebook.
     """
     num_layers = h_delta.shape[0]
@@ -524,24 +581,31 @@ def apply_svd_decomposition(
     explained_var_dir = output_dir / "explained_variances"
     explained_var_dir.mkdir(parents=True, exist_ok=True)
 
-    for layer in tqdm(range(num_layers), desc="SVD per layer"):
-        # Convert bfloat16 to float32 (numpy doesn't support bfloat16)
-        X = stacked_differences[:, layer, :].float().numpy()  # num_samples x hidden_dim
+    # Move tensors to GPU for SVD computation
+    stacked_diff_gpu = stacked_differences.to(device).float()
+    h_delta_gpu = h_delta.to(device).float()
 
-        # Center the data
-        X_centered = X - X.mean(axis=0)
+    for layer in tqdm(range(num_layers), desc="SVD per layer (GPU)"):
+        # Slice layer data on GPU (already float32)
+        X = stacked_diff_gpu[:, layer, :]  # num_samples x hidden_dim
 
-        # SVD
-        U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        # Center the data on GPU
+        X_centered = X - X.mean(dim=0)
 
-        # Explained variance
+        # SVD on GPU (torch.linalg.svd returns U, S, Vh where Vh = V^H = V^T for real)
+        U, S, Vh = torch.linalg.svd(X_centered, full_matrices=False)
+
+        # Explained variance on GPU
         explained_var = (S ** 2) / (S ** 2).sum()
-        cumulative_var = np.cumsum(explained_var)
+        cumulative_var = torch.cumsum(explained_var, dim=0)
 
-        # Plot explained variance
+        # Plot explained variance (convert to CPU numpy for matplotlib)
+        explained_var_np = explained_var[:20].cpu().numpy()
+        cumulative_var_np = cumulative_var[:20].cpu().numpy()
+
         plt.figure(figsize=(10, 6))
-        plt.plot(explained_var[:20], marker='o', label='Individual explained variance')
-        plt.plot(cumulative_var[:20], linestyle='--', label='Cumulative explained variance')
+        plt.plot(explained_var_np, marker='o', label='Individual explained variance')
+        plt.plot(cumulative_var_np, linestyle='--', label='Cumulative explained variance')
         plt.xlabel('Principal Component')
         plt.ylabel('Explained Variance Ratio')
         plt.title(f'Explained Variance (Layer {layer})')
@@ -553,8 +617,12 @@ def apply_svd_decomposition(
 
         # Get steering vector for specified component
         # Scale by original steering vector norm (matching D_STEER)
-        steering_vector = torch.tensor(Vt[component], dtype=torch.float32) * h_delta[layer].float().norm()
-        steering_vector_component[(layer, component)] = steering_vector
+        steering_vector = Vh[component] * h_delta_gpu[layer].norm()
+        steering_vector_component[(layer, component)] = steering_vector.cpu()
+
+    # Free GPU memory used for SVD
+    del stacked_diff_gpu, h_delta_gpu
+    torch.cuda.empty_cache()
 
     # Stack into tensor
     stacked = torch.stack([steering_vector_component[(layer, component)] for layer in range(num_layers)])

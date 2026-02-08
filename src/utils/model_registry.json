@@ -10,6 +10,7 @@
       "hidden_dim": 4096,
       "num_layers": 32,
       "batch_size": 16,
+
       "note": "D-STEER reference pair. VALIDATED (Δ=+21.8 monotonic)"
     },
     "Llama31_MAHALS": {
@@ -19,6 +20,7 @@
       "hidden_dim": 4096,
       "num_layers": 32,
       "batch_size": 16,
+
       "note": "Full FT pair (10% Tulu). VALIDATED (Δ=+23.8 monotonic)"
     },
     "OLMo2_1B": {
@@ -28,6 +30,7 @@
       "hidden_dim": 2048,
       "num_layers": 16,
       "batch_size": 64,
+
       "note": "AllenAI, Tulu 3 recipe, Full FT"
     },
     "OLMo2_7B": {
@@ -37,6 +40,7 @@
       "hidden_dim": 4096,
       "num_layers": 32,
       "batch_size": 24,
+
       "note": "AllenAI, Tulu 3 recipe, Full FT"
     },
     "OLMoE_Tulu": {
@@ -46,6 +50,7 @@
       "hidden_dim": 2048,
       "num_layers": 16,
       "batch_size": 24,
+
       "note": "MoE (64 experts, 8 active), 1B active / 7B total, Full FT"
     },
     "OLMo3_7B": {
@@ -55,7 +60,8 @@
       "hidden_dim": 4096,
       "num_layers": 32,
       "batch_size": 24,
-      "note": "AllenAI, Dolci recipe, Full FT"
+
+      "note": "AllenAI, Dolci recipe, Full FT. OLMo3 requires native transformers>=4.57.0 support. Current: 4.47.1"
     },
     "Zephyr_SFT_DPO": {
       "sft": "alignment-handbook/zephyr-7b-sft-full",
@@ -64,6 +70,7 @@
       "hidden_dim": 4096,
       "num_layers": 32,
       "batch_size": 24,
+
       "note": "HuggingFace, UltraChat→UltraFeedback, Full FT"
     },
     "Phi2_SFT_DPO": {
@@ -73,7 +80,8 @@
       "hidden_dim": 2560,
       "num_layers": 32,
       "batch_size": 48,
-      "note": "Stanford, parallel attn+MLP arch, Full FT"
+
+      "note": "Stanford, parallel attn+MLP arch, Full FT. Custom modeling_phi.py: hidden states extracted via hooks"
     },
     "Gemma7B_SFT_DPO": {
       "sft": "lewtun/gemma-7b-sft-full-deita-10k-v0",
@@ -82,6 +90,7 @@
       "hidden_dim": 3072,
       "num_layers": 28,
       "batch_size": 24,
+
       "note": "HuggingFace (lewtun), deita+dpo-mix, Full FT"
     },
     "Gemma2B_SFT_DPO": {
@@ -91,6 +100,7 @@
       "hidden_dim": 2048,
       "num_layers": 18,
       "batch_size": 48,
+
       "note": "Columbia NLP, Full FT"
     },
     "Qwen2_7B_DPOShift": {
@@ -100,6 +110,7 @@
       "hidden_dim": 3584,
       "num_layers": 28,
       "batch_size": 24,
+
       "note": "DPO-Shift paper (arxiv:2502.07599), Full FT"
     },
     "Qwen25_3B_Tulu": {
@@ -109,6 +120,7 @@
       "hidden_dim": 2048,
       "num_layers": 36,
       "batch_size": 32,
+
       "note": "Tulu-3 SFT mixture, Full FT"
     }
   }

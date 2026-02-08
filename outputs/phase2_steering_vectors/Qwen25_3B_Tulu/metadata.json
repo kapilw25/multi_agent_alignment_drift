@@ -1,0 +1,15 @@
+{
+  "model_key": "Qwen25_3B_Tulu",
+  "display_name": "Qwen2.5-3B-Tulu",
+  "sft_model": "phunguyen01/II-Tulu-3B-SFT",
+  "dpo_model": "phunguyen01/Qwen-Tulu-3B-DPO",
+  "num_samples": 100,
+  "num_layers": 36,
+  "hidden_dim": 2048,
+  "batch_size": 8,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.9989149570465088,
+  "mean_cosine_sim_rejected": 0.9991319179534912,
+  "timestamp": "2026-02-08T01:52:34.245454"
+}

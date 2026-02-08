@@ -5,6 +5,7 @@ Bar plots for AQI scores across LLMs.
 """
 
 import json
+import math
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -344,7 +345,10 @@ def plot_steering_delta_bars(
     ax.axvline(x=0, color='black', linewidth=1)
     ax.set_xlabel('AQI Delta (λ=1 - λ=0)', fontsize=12)
     ax.set_title('D-STEER Validation: AQI Improvement\n(* = Monotonic Increase)', fontsize=14, fontweight='bold')
-    ax.set_xlim(-20, 30)
+    # Dynamic xlim based on actual deltas
+    delta_min, delta_max = min(deltas), max(deltas)
+    margin = max(5, (delta_max - delta_min) * 0.15)
+    ax.set_xlim(delta_min - margin, delta_max + margin)
     ax.grid(axis='x', alpha=0.3)
 
     # Legend - inside plot, upper right corner (empty area above negative bars)
@@ -365,6 +369,44 @@ def plot_steering_delta_bars(
     return fig
 
 
+def _compute_line_grid(n: int) -> tuple:
+    """
+    Compute (rows, cols) for n line subplots.
+    cols = min(4, ceil(sqrt(n))), rows = ceil(n/cols).
+
+    n=1→(1,1)  n=4→(2,2)  n=6→(2,3)  n=11→(3,4)  n=12→(3,4)
+    """
+    if n <= 0:
+        return 0, 0
+    if n == 1:
+        return 1, 1
+    if n == 2:
+        return 1, 2
+    cols = min(4, math.ceil(math.sqrt(n)))
+    rows = math.ceil(n / cols)
+    return rows, cols
+
+
+def _apply_shared_axes(line_axes: list, positions: list):
+    """
+    Remove redundant axis labels for faceted small multiples.
+    Only leftmost column keeps y-labels, only bottom-of-column keeps x-labels.
+    """
+    pos_set = set(positions)
+
+    for ax, (row, col) in zip(line_axes, positions):
+        is_bottom = (row + 1, col) not in pos_set
+        is_left = (col == 0)
+
+        if not is_left:
+            ax.set_ylabel('')
+            ax.tick_params(axis='y', labelleft=False)
+
+        if not is_bottom:
+            ax.set_xlabel('')
+            ax.tick_params(axis='x', labelbottom=False)
+
+
 def plot_steering_combined(
     output_dir: str,
     output_path: Optional[str] = None,
@@ -372,11 +414,13 @@ def plot_steering_combined(
 ) -> plt.Figure:
     """
     Combined figure: individual AQI vs lambda LINE plots + delta BAR chart.
+    Dynamic grid sizing — handles any number of models.
+    Shared axes: only leftmost column has y-labels, only bottom row has x-labels.
 
     Layouts:
-      - "focus_bar": Large bar chart (right) + small line plots (left 2x3 grid)
-      - "grid_7": 7 subplots (6 lines + 1 bar) in 2 rows
-      - "vertical": Bar on top, lines below in 2x3
+      - "focus_bar": Large bar chart (right) + line plots (left, dynamic grid)
+      - "grid_7": Unified grid with line plots + bar chart
+      - "vertical": Bar on top, lines below in dynamic grid
 
     Args:
         output_dir: Phase 3 output directory containing model subdirs + phase3_summary.json
@@ -399,6 +443,12 @@ def plot_steering_combined(
     deltas = [d["delta"] for d in summary]
     monotonic = [d["is_monotonic"] for d in summary]
 
+    if not model_keys:
+        print("No model data found in summary")
+        return None
+
+    n_models = len(model_keys)
+
     # Colors for bar chart
     bar_colors = []
     for d, m in zip(deltas, monotonic):
@@ -409,55 +459,81 @@ def plot_steering_combined(
         else:
             bar_colors.append('#e74c3c')
 
-    # Line colors matching bar order
-    line_colors = plt.cm.tab10(np.linspace(0, 1, len(model_keys)))
-    model_color_map = {k: c for k, c in zip(model_keys, line_colors)}
+    # Dynamic grid dimensions for line plots
+    line_rows, line_cols = _compute_line_grid(n_models)
+
+    # --- Create layout ---
+    line_axes = []
+    positions = []  # (row, col) for shared-axis logic
 
     if layout == "focus_bar":
-        # Layout: Bar chart prominent on right (60%), lines on left (40%)
-        fig = plt.figure(figsize=(16, 10))
-        gs = fig.add_gridspec(3, 4, width_ratios=[1, 1, 1.5, 1.5], hspace=0.35, wspace=0.3)
+        bar_cols = 2
+        fig_w = 3.5 * line_cols + 7
+        fig_h = max(6, line_rows * 3.5)
+        fig = plt.figure(figsize=(fig_w, fig_h))
+        gs = fig.add_gridspec(line_rows, line_cols + bar_cols,
+                              width_ratios=[1] * line_cols + [1.5] * bar_cols,
+                              hspace=0.35, wspace=0.3)
 
-        # Bar chart spans right 2 columns, all 3 rows
-        ax_bar = fig.add_subplot(gs[:, 2:])
+        ax_bar = fig.add_subplot(gs[:, line_cols:])
 
-        # Line plots in left 2 columns (2x3 grid → actually 3x2)
-        line_axes = []
-        for i in range(3):
-            for j in range(2):
-                ax = fig.add_subplot(gs[i, j])
-                line_axes.append(ax)
+        for idx in range(n_models):
+            r, c = idx // line_cols, idx % line_cols
+            ax = fig.add_subplot(gs[r, c])
+            line_axes.append(ax)
+            positions.append((r, c))
 
     elif layout == "grid_7":
-        # Layout: 2 rows - top row has 4 plots, bottom row has 3 (bar is larger)
-        fig = plt.figure(figsize=(18, 8))
-        gs = fig.add_gridspec(2, 4, height_ratios=[1, 1.2], hspace=0.3, wspace=0.25)
+        empty_last_row = line_rows * line_cols - n_models
 
-        line_axes = []
-        # Top row: 4 line plots
-        for j in range(4):
-            ax = fig.add_subplot(gs[0, j])
+        if empty_last_row >= 2:
+            # Bar fits in empty slots of last row
+            total_rows = line_rows
+            bar_row = line_rows - 1
+            bar_start_col = line_cols - empty_last_row
+            height_ratios = [1] * (total_rows - 1) + [1.2]
+        else:
+            # Bar gets dedicated full-width row
+            total_rows = line_rows + 1
+            bar_row = line_rows
+            bar_start_col = 0
+            height_ratios = [1] * line_rows + [1.2]
+
+        fig_w = max(2, line_cols) * 4.5
+        fig_h = total_rows * 4
+        fig = plt.figure(figsize=(fig_w, fig_h))
+        gs = fig.add_gridspec(total_rows, line_cols,
+                              height_ratios=height_ratios,
+                              hspace=0.3, wspace=0.25)
+
+        for idx in range(n_models):
+            r, c = idx // line_cols, idx % line_cols
+            ax = fig.add_subplot(gs[r, c])
             line_axes.append(ax)
-        # Bottom row: 2 line plots + bar chart (spans 2 cols)
-        for j in range(2):
-            ax = fig.add_subplot(gs[1, j])
-            line_axes.append(ax)
-        ax_bar = fig.add_subplot(gs[1, 2:])
+            positions.append((r, c))
+
+        if empty_last_row >= 2:
+            ax_bar = fig.add_subplot(gs[bar_row, bar_start_col:])
+        else:
+            ax_bar = fig.add_subplot(gs[bar_row, :])
 
     else:  # vertical
-        # Layout: Bar on top, lines below in 2x3 grid
-        fig = plt.figure(figsize=(14, 12))
-        gs = fig.add_gridspec(3, 3, height_ratios=[1.2, 1, 1], hspace=0.3, wspace=0.25)
+        total_rows = 1 + line_rows
+        fig_w = max(12, 4.5 * line_cols)
+        fig_h = 4 + line_rows * 3.5
+        fig = plt.figure(figsize=(fig_w, fig_h))
+        gs = fig.add_gridspec(total_rows, line_cols,
+                              height_ratios=[1.2] + [1] * line_rows,
+                              hspace=0.3, wspace=0.25)
 
-        # Bar spans top row
         ax_bar = fig.add_subplot(gs[0, :])
 
-        # Lines in bottom 2 rows (2x3)
-        line_axes = []
-        for i in range(1, 3):
-            for j in range(3):
-                ax = fig.add_subplot(gs[i, j])
-                line_axes.append(ax)
+        for idx in range(n_models):
+            r = idx // line_cols + 1  # +1: row 0 is bar
+            c = idx % line_cols
+            ax = fig.add_subplot(gs[r, c])
+            line_axes.append(ax)
+            positions.append((r, c))
 
     # --- Plot individual line charts ---
     for idx, model_key in enumerate(model_keys):
@@ -497,6 +573,10 @@ def plot_steering_combined(
         ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=8)
 
+    # --- Apply shared axes (remove redundant labels) ---
+    if len(line_axes) > 1:
+        _apply_shared_axes(line_axes, positions)
+
     # --- Plot bar chart ---
     bars = ax_bar.barh(model_keys, deltas, color=bar_colors, edgecolor='black', linewidth=0.5)
 
@@ -513,10 +593,15 @@ def plot_steering_combined(
     ax_bar.axvline(x=0, color='black', linewidth=1)
     ax_bar.set_xlabel('AQI Delta (λ=1 - λ=0)', fontsize=12)
     ax_bar.set_title('D-STEER: AQI Improvement (* = Monotonic)', fontsize=13, fontweight='bold')
-    ax_bar.set_xlim(-20, 30)
+
+    # Dynamic xlim based on actual deltas
+    delta_min, delta_max = min(deltas), max(deltas)
+    margin = max(5, (delta_max - delta_min) * 0.15)
+    ax_bar.set_xlim(delta_min - margin, delta_max + margin)
+
     ax_bar.grid(axis='x', alpha=0.3)
 
-    # Legend for bar chart - inside plot, upper right corner
+    # Legend for bar chart
     from matplotlib.patches import Patch
     legend_elements = [
         Patch(facecolor='#27ae60', edgecolor='black', label='Positive + Monotonic'),

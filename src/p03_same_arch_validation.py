@@ -15,9 +15,16 @@ LITMUS Dataset (hasnat79/litmus): ~20,439 total samples, ~2,919 min per axiom
     python -u src/p03_same_arch_validation.py --mode sanity --all-layers --no-preserve-norm 2>&1 | tee logs/phase3_all.log
 
 Modes:
-    --mode sanity: 100 samples/category →  1,400 total (~1-2 hrs)
-    --mode full:   500 samples/category →  7,000 total (~5-8 hrs)
-    --mode max:   2000 samples/category → 28,000 total (~15-20 hrs)
+    --mode sanity: 100 samples/category →  1,400 total (~1-2 hrs)  ← RECOMMENDED
+    --mode full:   500 samples/category →  7,000 total (~5-8 hrs)  ← NOT RECOMMENDED
+    --mode max:   2000 samples/category → 28,000 total (~15-20 hrs) ← NOT RECOMMENDED
+
+WARNING: Use --mode sanity only. Full/max modes cap "overall" AQI at 55.0 for ALL models.
+    Root cause: t-SNE quality degrades when merging >1,400 samples across axioms for the
+    "overall" metric. With 7,000 samples, overall XB ~1.2 (vs per-axiom ~0.3) → sigmoid
+    normalization squashes XB_norm to 0 → floor at 10 → AQI = 0.5×CHI_norm + 0.5×10 = 55 max.
+    With 1,400 samples (sanity), overall XB ~0.5 → XB_norm ~11+ → AQI has full 0-100 range.
+    Observed: sanity AQI ranged 20-84 across 10 models; full AQI locked at 55 for all 10.
 
 Resources (A100 80GB, 3 models): Disk ~60GB | VRAM ~25GB peak | Batch: 16 (base model only)
 
@@ -37,6 +44,9 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass, field
 from functools import partial
+
+# Prevent CUDA memory fragmentation over many batches (must be set before import torch)
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
 import numpy as np
@@ -77,6 +87,7 @@ from aqi.aqi_dealign_xb_chi import (
 # Import local utilities
 from utils import load_model_registry, get_model_info, get_batch_size
 from utils.checkpoint import CheckpointManager, show_checkpoint_menu
+from utils.plot_aqi import plot_steering_delta_bars, plot_steering_combined
 from utils.config import (
     DATASET_NAME, GAMMA, DIM_REDUCTION, RANDOM_SEED,
     SAMPLES_SANITY, SAMPLES_FULL, SAMPLES_MAX,
@@ -734,6 +745,7 @@ def run_same_arch_validation(
     config: Config,
     samples_per_category: int,
     output_dir: Path,
+    mode: str = "unknown",
 ) -> Dict[str, List[Dict]]:
     """
     Run same-architecture steering validation for specified models.
@@ -843,11 +855,21 @@ def run_same_arch_validation(
                 # Cleanup between lambda evaluations
                 cleanup_gpu()
 
-            # Store results
-            all_results[model_key] = lambda_results
+            # Store results (wrapped dict matching checkpoint format)
+            all_results[model_key] = {
+                "mode": mode,
+                "n_samples": len(dataset_df),
+                "samples_per_category": samples_per_category,
+                "lambda_results": lambda_results,
+            }
 
-            # Save checkpoint
-            ckpt.add_completed_model(model_key, {"lambda_results": lambda_results})
+            # Save checkpoint (per-model mode + n_samples for traceability)
+            ckpt.add_completed_model(model_key, {
+                "mode": mode,
+                "n_samples": len(dataset_df),
+                "samples_per_category": samples_per_category,
+                "lambda_results": lambda_results,
+            })
 
             # Generate per-model plots
             print(f"\nGenerating plots for {model_key}...")
@@ -884,10 +906,28 @@ def run_same_arch_validation(
             print(f"  Improvement: {improvement:+.2f}")
             print(f"  Monotonic: {'YES' if is_monotonic else 'NO'}")
 
+            # Progressive: update comparison plots after each model
+            try:
+                print_summary(all_results, output_dir, mode=mode)
+            except Exception as plot_err:
+                print(f"Warning: Progressive plot generation failed: {plot_err}")
+
         except Exception as e:
-            print(f"ERROR: {e}")
+            print(f"\nFATAL ERROR on {model_key}: {e}")
             import traceback
             traceback.print_exc()
+
+            # Cleanup before exiting
+            if model is not None:
+                unload_model(model)
+            if tokenizer is not None:
+                del tokenizer
+            cleanup_gpu()
+            print_gpu_memory()
+
+            # Save checkpoint so completed models are preserved
+            ckpt.save(ckpt.load())
+            sys.exit(1)
 
         finally:
             if model is not None:
@@ -903,7 +943,7 @@ def run_same_arch_validation(
     return all_results
 
 
-def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
+def print_summary(results: Dict[str, List[Dict]], output_dir: Path, mode: str = "unknown"):
     """Print summary of validation results."""
     if not results:
         print("\nNo results.")
@@ -931,8 +971,13 @@ def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
 
         print(f"{model_key:<15} {aqi_0:<10.2f} {aqi_1:<10.2f} {delta:+<10.2f} {'YES' if is_monotonic else 'NO':<12}")
 
+        # n_samples from first lambda result (same for all lambdas)
+        n_samples = sorted_results[0].get("n_samples", 0) if sorted_results else 0
+
         summary_data.append({
             "model_key": model_key,
+            "mode": mode,
+            "n_samples": n_samples,
             "aqi_lambda_0": aqi_0,
             "aqi_lambda_1": aqi_1,
             "delta": delta,
@@ -949,7 +994,7 @@ def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
     plot_all_models_comparison(results, output_dir / "all_models_comparison.png")
     plt.close()
 
-    # Save summary JSON
+    # Save summary JSON (must happen before plot functions that read it)
     summary_path = output_dir / "phase3_summary.json"
     with open(summary_path, "w") as f:
         json.dump({
@@ -957,6 +1002,16 @@ def print_summary(results: Dict[str, List[Dict]], output_dir: Path):
             "timestamp": datetime.now().isoformat(),
         }, f, indent=2, default=str)
     print(f"\nSummary: {summary_path}")
+
+    # Generate Phase 3 plots (read from phase3_summary.json)
+    print("\nGenerating Phase 3 plots...")
+
+    plot_steering_delta_bars(str(summary_path), output_path=str(output_dir / "delta_comparison.png"))
+    plt.close()
+
+    for layout in ["focus_bar", "grid_7", "vertical"]:
+        plot_steering_combined(str(output_dir), output_path=str(output_dir / f"combined_{layout}.png"), layout=layout)
+        plt.close()
 
 
 # =============================================================================
@@ -1094,8 +1149,8 @@ def main():
     print(f"Models: {model_keys}")
     print(f"Output: {output_dir}")
 
-    results = run_same_arch_validation(model_keys, config, samples, output_dir)
-    print_summary(results, output_dir)
+    results = run_same_arch_validation(model_keys, config, samples, output_dir, mode=args.mode)
+    print_summary(results, output_dir, mode=args.mode)
 
 
 if __name__ == "__main__":

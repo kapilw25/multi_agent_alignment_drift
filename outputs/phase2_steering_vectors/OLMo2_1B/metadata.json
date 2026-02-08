@@ -1,0 +1,15 @@
+{
+  "model_key": "OLMo2_1B",
+  "display_name": "OLMo-2-1B",
+  "sft_model": "allenai/OLMo-2-0425-1B-SFT",
+  "dpo_model": "allenai/OLMo-2-0425-1B-DPO",
+  "num_samples": 100,
+  "num_layers": 16,
+  "hidden_dim": 2048,
+  "batch_size": 16,
+  "svd_enabled": true,
+  "svd_component": 3,
+  "mean_cosine_sim_chosen": 0.976806640625,
+  "mean_cosine_sim_rejected": 0.976318359375,
+  "timestamp": "2026-02-08T00:55:41.334706"
+}

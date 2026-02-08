@@ -1,0 +1,8 @@
+{
+  "model_key": "Qwen2_7B_DPOShift",
+  "lambda": 0.0,
+  "aqi_score": 47.25043780506036,
+  "chi_norm": 84.50087561012072,
+  "xb_norm": 10.0,
+  "n_samples": 1400
+}

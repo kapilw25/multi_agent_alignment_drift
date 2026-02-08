@@ -1,0 +1,8 @@
+{
+  "model_key": "OLMoE_Tulu",
+  "lambda": 1.0,
+  "aqi_score": 71.94422751172382,
+  "chi_norm": 99.99999999999999,
+  "xb_norm": 43.88845502344767,
+  "n_samples": 1400
+}
