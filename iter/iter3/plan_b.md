@@ -96,7 +96,7 @@ python -u src/p03_same_arch_validation.py --mode sanity --models Llama31_Tulu 2>
 ### Sanity run — all 10 compatible models
 
 ```bash
-⏳
+✅   
 tmux
 python -u src/p03_same_arch_validation.py --mode sanity --models OLMo2_1B Gemma2B_SFT_DPO Phi2_SFT_DPO Qwen25_3B_Tulu OLMo2_7B OLMoE_Tulu Zephyr_SFT_DPO Gemma7B_SFT_DPO Qwen2_7B_DPOShift Llama31_Tulu 2>&1 | tee logs/phase3_sanity_all10.log
 ```
@@ -190,6 +190,51 @@ that steering vector pushes the model away from LITMUS-defined alignment.
 Zephyr uses UltraChat (SFT) → UltraFeedback (DPO). Qwen2_7B_DPOShift uses the same
 training data pipeline but shows +7.75, so training data alone doesn't explain it — the
 Mistral-7B base model's internal representation likely encodes the SFT→DPO shift differently.
+
+---
+
+## Plot Explanations
+
+### delta_comparison.png — AQI Improvement Bar Chart
+
+Horizontal bar chart of AQI Delta (= AQI(λ=1) − AQI(λ=0)) for all 10 compatible models, sorted worst→best.
+
+**Color coding**: Dark green = positive + monotonic | Light green = positive, non-monotonic | Red = degradation
+
+- **Top 4 (Δ>+16)**: Gemma2B (+21.0), OLMo2_1B (+18.2), Llama31_Tulu (+17.6\*), OLMoE (+16.9) — strong steering signal
+- **Middle 4 (Δ>+5)**: Qwen25_3B (+11.4), Qwen2_7B (+7.7), Phi2 (+7.6), Gemma7B (+6.9) — pass threshold
+- **2 failures**: OLMo2_7B (+4.8, below +5), Zephyr (-5.2, degradation)
+- Only Llama31_Tulu gets `*` marker (monotonic across all 5 λ values)
+
+### combined_vertical.png — Full Dashboard
+
+**Top panel**: Same delta bar chart as above.
+
+**Bottom panel**: 4×3 grid of individual AQI vs λ line plots (10 populated, sorted by Δ descending).
+- x-axis: λ (0.0 → 1.0), y-axis: AQI (0–100), shaded area under curve (green=positive, red=degradation)
+- Dashed lines: reference thresholds (55.0 XB floor visible on several subplots)
+
+Notable trajectories:
+| Model | Shape | Interpretation |
+|-------|-------|----------------|
+| Llama31_Tulu | Clean ascending | Textbook D-STEER validation |
+| Gemma2B / OLMo2_1B | Steep rise, mid-wobble | Strong gain but non-monotonic |
+| Qwen25_3B_Tulu | Low but ascending (10→22) | Low absolute AQI, clean upward trend |
+| Phi2_SFT_DPO | High baseline (~76→83) | Already well-aligned, small headroom |
+| OLMo2_7B | Nearly flat (~72→77) | Barely responds to steering |
+| Zephyr_SFT_DPO | Rise→crash→partial recovery | λ=0.25 helps, λ≥0.5 disrupts |
+
+---
+
+## Limitations of Current Results
+
+1. **Full mode broken** — AQI hard-caps at 55.0 when sample count exceeds ~2,000 (t-SNE + CHI/XB scaling). Only sanity mode (1,400 samples) produces valid results.
+2. **Only 1/10 monotonic** — D-STEER ideal is monotonic AQI(λ); 9/10 models show non-monotonic wobbles at intermediate λ.
+3. **55.0 floor at individual λ points** — even in sanity mode, some per-lambda AQIs hit the XB floor (Zephyr at λ=0.5, OLMo2_1B at λ=0).
+4. **t-SNE stochasticity** — AQI shifts ~2-5 points across random seeds. Single-run results not fully reproducible.
+5. **2/10 models fail** — Zephyr (Δ=-5.2, degradation) and OLMo2_7B (Δ=+4.8, below threshold).
+6. **OLMo3_7B deferred** — 10/11 models validated (needs transformers>=4.57).
+7. **Statistical power** — 100 samples/category × 14 categories = 1,400 total. Limited vs full mode's 7,000 if the t-SNE scaling bug is fixed.
 
 ---
 
